@@ -907,7 +907,7 @@ bool FrenetPlanner::getInitialTargetPoint(
 
 bool FrenetPlanner::updateTargetPoint(
     const std::unique_ptr<Trajectory>& kept_trajectory,
-    const std::vector<autoware_msgs::Waypoint>& waypoints,
+    const std::vector<autoware_msgs::Waypoint>& local_referece_waypoints,
     const std::vector<Point>& lane_points,    
     const autoware_msgs::DetectedObjectArray& objects,
     const std::unique_ptr<ReferencePoint>& kept_reference_point,
@@ -922,7 +922,7 @@ bool FrenetPlanner::updateTargetPoint(
   
   //not update reference point when kept_reference point is equal to last waypoint
   double distance = calculate2DDistace(kept_reference_point->cartesian_point, 
-                                       waypoints.back().pose.pose.position);
+                                       local_referece_waypoints.back().pose.pose.position);
   if(distance < 0.1)
   {
     return false;
@@ -931,7 +931,7 @@ bool FrenetPlanner::updateTargetPoint(
   
   // if containing flagged waypoint, update kept trajectory
   autoware_msgs::Waypoint flagged_waypoint;
-  bool found_flagged_waypoint = includeFlaggedWaypoint(waypoints, flagged_waypoint);
+  bool found_flagged_waypoint = includeFlaggedWaypoint(local_referece_waypoints, flagged_waypoint);
   
   //TODO: find better way; thie loop has 2 differenet meaning
   //TODO: ideally reference_point need to be considered with keep distance from the objects
