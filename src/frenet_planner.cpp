@@ -941,11 +941,24 @@ bool FrenetPlanner::updateTargetPoint(
   bool found_new_reference_point = false;
   double min_dist = 9999;
   autoware_msgs::Waypoint reference_waypoint;
-  for(const auto& waypoint: kept_trajectory->trajectory_points.waypoints)
+  std::vector<autoware_msgs::Waypoint> current_trajectory_points = 
+  kept_trajectory->trajectory_points.waypoints;
+  for(size_t i = 0; i < current_trajectory_points.size(); i++)
   {
-    if(isCollision(waypoint, objects))
+    if(isCollision(current_trajectory_points[i], objects))
     {
-      reference_waypoint = waypoint;
+      int num_waypoints_selecting_back_when_collision = 3;
+      int reference_wp_index = i - num_waypoints_selecting_back_when_collision;
+      if(reference_wp_index < 0)
+      {
+        reference_waypoint = current_trajectory_points[0];
+      }
+      else
+      {
+        reference_waypoint = current_trajectory_points[reference_wp_index];
+      }
+
+      // reference_waypoint = current_trajectory_points[i];
       found_new_reference_point = true;
       break;
     }
@@ -953,7 +966,7 @@ bool FrenetPlanner::updateTargetPoint(
     if(found_flagged_waypoint)
     {
       double distance = calculate2DDistace(flagged_waypoint.pose.pose.position,
-                                           waypoint.pose.pose.position);
+                                           current_trajectory_points[i].pose.pose.position);
       if(distance < 3 && distance < min_dist)
       {
         min_dist = distance;
