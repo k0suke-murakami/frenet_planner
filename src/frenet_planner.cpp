@@ -907,7 +907,7 @@ bool FrenetPlanner::getInitialTargetPoint(
 
 bool FrenetPlanner::updateTargetPoint(
     const std::unique_ptr<Trajectory>& kept_trajectory,
-    const std::vector<autoware_msgs::Waypoint>& local_referece_waypoints,
+    const std::vector<autoware_msgs::Waypoint>& local_reference_waypoints,
     const std::vector<Point>& lane_points,    
     const autoware_msgs::DetectedObjectArray& objects,
     const std::unique_ptr<ReferencePoint>& kept_reference_point,
@@ -922,7 +922,7 @@ bool FrenetPlanner::updateTargetPoint(
   
   //not update reference point when kept_reference point is equal to last waypoint
   double distance = calculate2DDistace(kept_reference_point->cartesian_point, 
-                                       local_referece_waypoints.back().pose.pose.position);
+                                       local_reference_waypoints.back().pose.pose.position);
   if(distance < 0.1)
   {
     return false;
@@ -931,22 +931,22 @@ bool FrenetPlanner::updateTargetPoint(
   
   // if containing flagged waypoint, update kept trajectory
   autoware_msgs::Waypoint flagged_waypoint;
-  bool found_flagged_waypoint = includeFlaggedWaypoint(local_referece_waypoints, flagged_waypoint);
+  bool found_flagged_waypoint = includeFlaggedWaypoint(local_reference_waypoints, flagged_waypoint);
   
   //TODO: find better way; thie loop has 2 differenet meaning
   //TODO: ideally reference_point need to be considered with keep distance from the objects
   //       plus, has semantic meanings such as lateral_offset, time_horizon, etc                                                                                       
   //incident check
   //TODO: seek better way to deal with flag
-  bool found_new_target_point = false;
+  bool found_new_reference_point = false;
   double min_dist = 9999;
-  autoware_msgs::Waypoint cartesian_target_point;
+  autoware_msgs::Waypoint reference_waypoint;
   for(const auto& waypoint: kept_trajectory->trajectory_points.waypoints)
   {
     if(isCollision(waypoint, objects))
     {
-      cartesian_target_point = waypoint;
-      found_new_target_point = true;
+      reference_waypoint = waypoint;
+      found_new_reference_point = true;
       break;
     }
     // find closest waypoint with flagged waypoint
@@ -957,26 +957,26 @@ bool FrenetPlanner::updateTargetPoint(
       if(distance < 3 && distance < min_dist)
       {
         min_dist = distance;
-        cartesian_target_point = flagged_waypoint;
-        found_new_target_point = true;
+        reference_waypoint = flagged_waypoint;
+        found_new_reference_point = true;
         std::cerr << "found flagged point!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"  << std::endl;
         break;
       }
     }
   }
-  if(!found_new_target_point)
+  if(!found_new_reference_point)
   {
-    return found_new_target_point;
+    return found_new_reference_point;
   }
   
   double frenet_s_position, frenet_d_position;
-  convertCartesianPosition2FrenetPosition(cartesian_target_point.pose.pose.position,
+  convertCartesianPosition2FrenetPosition(reference_waypoint.pose.pose.position,
                                           lane_points,
                                           frenet_s_position,
                                           frenet_d_position);
   Eigen::Vector3d frenet_s, frenet_d;
   frenet_s << frenet_s_position,
-              cartesian_target_point.twist.twist.linear.x,
+              reference_waypoint.twist.twist.linear.x,
               0;             
   frenet_d << frenet_d_position,
               0,
@@ -984,7 +984,7 @@ bool FrenetPlanner::updateTargetPoint(
   reference_point.frenet_point.s_state = frenet_s;
   reference_point.frenet_point.d_state = frenet_d;
   
-  if(cartesian_target_point.twist.twist.linear.x < 0.1)
+  if(reference_waypoint.twist.twist.linear.x < 0.1)
   {
     reference_point.lateral_offset = 0.0;
     reference_point.lateral_sampling_resolution = 0.01;
@@ -1004,8 +1004,8 @@ bool FrenetPlanner::updateTargetPoint(
     reference_point.time_horizon_offset = 6.0;
     reference_point.time_horizon_sampling_resolution = 2.0;
   }
-  reference_point.cartesian_point = cartesian_target_point.pose.pose.position;
-  return found_new_target_point;
+  reference_point.cartesian_point = reference_waypoint.pose.pose.position;
+  return found_new_reference_point;
   
 }
 
