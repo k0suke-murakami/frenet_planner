@@ -957,8 +957,7 @@ bool FrenetPlanner::updateTargetPoint(
       {
         reference_waypoint = current_trajectory_points[reference_wp_index];
       }
-
-      // reference_waypoint = current_trajectory_points[i];
+      reference_waypoint.twist.twist.linear.x = 0.0;
       found_new_reference_point = true;
       break;
     }
@@ -999,6 +998,7 @@ bool FrenetPlanner::updateTargetPoint(
   
   if(reference_waypoint.twist.twist.linear.x < 0.1)
   {
+    std::cerr << "yaeeeee"  << std::endl;
     reference_point.lateral_offset = 0.0;
     reference_point.lateral_sampling_resolution = 0.01;
     reference_point.longutudinal_offset = 0.0;
@@ -1009,6 +1009,7 @@ bool FrenetPlanner::updateTargetPoint(
   }
   else
   {
+    std::cerr << "noooo"  << std::endl;
     reference_point.lateral_offset = 4.0;
     reference_point.lateral_sampling_resolution = 2.0;
     reference_point.longutudinal_offset = 0.0;
@@ -1045,7 +1046,8 @@ bool FrenetPlanner::isCollision(const autoware_msgs::Waypoint& waypoint,
   {
     double distance = calculate2DDistace(waypoint.pose.pose.position,
                                           object.pose.position);
-    if(distance < 3)
+    //TODO: paremater
+    if(distance < 6)
     {
       return true;
     }
