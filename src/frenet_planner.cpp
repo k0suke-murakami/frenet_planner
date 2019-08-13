@@ -947,17 +947,18 @@ bool FrenetPlanner::updateTargetPoint(
   {
     if(isCollision(current_trajectory_points[i], objects))
     {
-      int num_waypoints_selecting_back_when_collision = 3;
-      int reference_wp_index = i - num_waypoints_selecting_back_when_collision;
-      if(reference_wp_index < 0)
-      {
-        reference_waypoint = current_trajectory_points[0];
-      }
-      else
-      {
-        reference_waypoint = current_trajectory_points[reference_wp_index];
-      }
-      reference_waypoint.twist.twist.linear.x = 0.0;
+      // int num_waypoints_selecting_back_when_collision = 3;
+      // int reference_wp_index = i - num_waypoints_selecting_back_when_collision;
+      // if(reference_wp_index < 0)
+      // {
+      //   reference_waypoint = current_trajectory_points[0];
+      // }
+      // else
+      // {
+      //   reference_waypoint = current_trajectory_points[reference_wp_index];
+      // }
+      // reference_waypoint.twist.twist.linear.x = 0.0;
+      reference_waypoint = current_trajectory_points[i];
       found_new_reference_point = true;
       break;
     }
@@ -1047,7 +1048,7 @@ bool FrenetPlanner::isCollision(const autoware_msgs::Waypoint& waypoint,
     double distance = calculate2DDistace(waypoint.pose.pose.position,
                                           object.pose.position);
     //TODO: paremater
-    if(distance < 6)
+    if(distance < 3)
     {
       return true;
     }
