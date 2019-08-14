@@ -848,14 +848,16 @@ bool FrenetPlanner::isFlaggedWaypointCloseWithPoint(
 
 
 //TODO: not considering the size of waypoints
-bool FrenetPlanner::getReferencePoint(
+bool FrenetPlanner::getNewReferencePoint(
   const geometry_msgs::Point& origin_cartesian_point,
   const FrenetPoint& origin_frenet_point,
   const double origin_linear_velocity,  
   const std::vector<autoware_msgs::Waypoint>& reference_waypoints,
   const std::vector<Point>& lane_points,
+  const autoware_msgs::DetectedObjectArray& objects,
   ReferencePoint& reference_point)
 {
+  std::cerr << "calling getNewReferencePoint" << std::endl;
   //change look ahead distance based on current velocity
   const double lookahead_distance_ratio = 4.0;
   double lookahead_distance = fabs(origin_linear_velocity) * lookahead_distance_ratio;
@@ -866,7 +868,7 @@ bool FrenetPlanner::getReferencePoint(
   }
   
   double max_distance = -9999;
-  autoware_msgs::Waypoint target_waypoint;
+  autoware_msgs::Waypoint default_target_waypoint;
   for(const auto& waypoint: reference_waypoints)
   {
     double dx = waypoint.pose.pose.position.x - origin_cartesian_point.x;
@@ -876,7 +878,7 @@ bool FrenetPlanner::getReferencePoint(
     if(distance < lookahead_distance && distance > max_distance)
     {
       max_distance = distance;
-      target_waypoint = waypoint;
+      default_target_waypoint = waypoint;
     }
   }
   
@@ -884,46 +886,131 @@ bool FrenetPlanner::getReferencePoint(
   double frenet_s_position;
   double frenet_d_position;
   convertCartesianPosition2FrenetPosition(
-    target_waypoint.pose.pose.position, 
+    default_target_waypoint.pose.pose.position, 
     lane_points,        
     frenet_s_position,
     frenet_d_position);
   Eigen::Vector3d frenet_s;
   Eigen::Vector3d frenet_d;
   frenet_s << frenet_s_position,
-              target_waypoint.twist.twist.linear.x,
+              default_target_waypoint.twist.twist.linear.x,
               0;
   frenet_d << frenet_d_position,
               0,
               0;
+  FrenetPoint default_target_frenet_point;
+  default_target_frenet_point.d_state = frenet_d;
+  default_target_frenet_point.s_state = frenet_s;
+  
+  //TODO: change the behavior here based on current_reference_point's reference type
+  
+  //TODO: need refactor 
+  // only assuming avoid obstacle by moving right
+  ReferenceType reference_type = ReferenceType::Unknown;
   FrenetPoint target_frenet_point;
-  target_frenet_point.d_state = frenet_d;
-  target_frenet_point.s_state = frenet_s;
+  geometry_msgs::Point target_cartesian_point;
+  const double lateral_max_offset = 0.0;
+  const double lateral_sampling_resolution = 1.0;
+  for(double lateral_offset = 0.0;
+      lateral_offset <= lateral_max_offset;
+      lateral_offset+=lateral_sampling_resolution)
+  {
+    double time_horizon = 8.0;
+    FrenetPoint offset_target_frenet_point;
+    offset_target_frenet_point = default_target_frenet_point;
+    offset_target_frenet_point.d_state(0) += lateral_offset;
+    Trajectory trajectory;
+    getTrajectory(lane_points,
+                  reference_waypoints,
+                  origin_frenet_point,
+                  offset_target_frenet_point,
+                  time_horizon,
+                  dt_for_sampling_points_,
+                  trajectory);
+    autoware_msgs::Waypoint collision_waypoint;
+    bool is_collison_free = isTrajectoryCollisionFree(
+                              trajectory.trajectory_points.waypoints,
+                              objects,
+                              collision_waypoint);
+    if(is_collison_free)
+    {
+      if(lateral_offset < 0.001)
+      {
+        reference_type = ReferenceType::Waypoint;
+      }
+      else
+      {
+        reference_type = ReferenceType::AvoidableStaticObstacle;
+      }
+      target_frenet_point = offset_target_frenet_point;
+      target_cartesian_point = trajectory.trajectory_points.waypoints.back().pose.pose.position;
+      break;
+    }
+    else if(!is_collison_free && lateral_offset >= lateral_max_offset)
+    {
+      //TODO: make method input wp point, wp linear velo, lane_points output: FrenetPoint
+      double frenet_s_position;
+      double frenet_d_position;
+      convertCartesianPosition2FrenetPosition(
+        collision_waypoint.pose.pose.position, 
+        lane_points,        
+        frenet_s_position,
+        frenet_d_position);
+      Eigen::Vector3d frenet_s;
+      Eigen::Vector3d frenet_d;
+      frenet_s << frenet_s_position,
+                  0,
+                  0;
+      frenet_d << frenet_d_position,
+                  0,
+                  0;
+      FrenetPoint target_frenet_point;
+      target_frenet_point.d_state = frenet_d;
+      target_frenet_point.s_state = frenet_s;
+      target_cartesian_point = collision_waypoint.pose.pose.position;
+    }
+  }
   
-  double time_horizon = 8.0;
-  Trajectory trajectory;
-  getTrajectory(lane_points,
-                reference_waypoints,
-                origin_frenet_point,
-                target_frenet_point,
-                time_horizon,
-                dt_for_sampling_points_,
-                trajectory);
   
-  reference_point.frenet_point = target_frenet_point;
-  reference_point.lateral_offset = 4.0;
-  reference_point.lateral_sampling_resolution = 2.0;
-  reference_point.longutudinal_offset = 0.0;
-  reference_point.longutudinal_sampling_resolution = 0.01;
-  reference_point.time_horizon = 8.0;
-  reference_point.time_horizon_offset = 6.0;
-  reference_point.time_horizon_sampling_resolution = 2.0;
-  reference_point.reference_type = ReferenceType::Waypoint;
-  
-  reference_point.cartesian_point = target_waypoint.pose.pose.position;
-  
-  
-  
+  if(reference_type == ReferenceType::Waypoint)
+  {
+    reference_point.frenet_point = target_frenet_point;
+    reference_point.lateral_offset = 0.0;
+    reference_point.lateral_sampling_resolution =0.01;
+    reference_point.longutudinal_offset = 0.0;
+    reference_point.longutudinal_sampling_resolution = 0.01;
+    reference_point.time_horizon = 8.0;
+    reference_point.time_horizon_offset = 6.0;
+    reference_point.time_horizon_sampling_resolution = 2.0;
+    reference_point.reference_type = reference_type;
+    reference_point.cartesian_point = target_cartesian_point;
+  }
+  else if(reference_type == ReferenceType::AvoidableStaticObstacle)
+  {
+    reference_point.frenet_point = target_frenet_point;
+    reference_point.lateral_offset = 4.0;
+    reference_point.lateral_sampling_resolution = 2.0;
+    reference_point.longutudinal_offset = 0.0;
+    reference_point.longutudinal_sampling_resolution = 0.01;
+    reference_point.time_horizon = 8.0;
+    reference_point.time_horizon_offset = 6.0;
+    reference_point.time_horizon_sampling_resolution = 2.0;
+    reference_point.reference_type = ReferenceType::Waypoint;
+    reference_point.cartesian_point = target_cartesian_point;
+  }
+  else
+  {
+    reference_point.frenet_point = target_frenet_point;
+    reference_point.lateral_offset = 0.0;
+    reference_point.lateral_sampling_resolution = 0.01;
+    reference_point.longutudinal_offset = 0.0;
+    reference_point.longutudinal_sampling_resolution = 0.01;
+    reference_point.time_horizon = 8.0;
+    reference_point.time_horizon_offset = 6.0;
+    reference_point.time_horizon_sampling_resolution = 2.0;
+    reference_point.reference_type = ReferenceType::Waypoint;
+    reference_point.cartesian_point = target_cartesian_point;
+  }
 }
 
 bool FrenetPlanner::updateReferencePoint(
@@ -934,7 +1021,7 @@ bool FrenetPlanner::updateReferencePoint(
     const std::unique_ptr<ReferencePoint>& kept_reference_point,
     ReferencePoint& reference_point)
 {
-  
+  std::cerr << "calling updateReferencePoint" << std::endl;
   if(!kept_trajectory)
   {
     std::cerr << "error: kept trajectory coulf not be nullptr in updateReferencePoint" << std::endl;
@@ -982,6 +1069,7 @@ bool FrenetPlanner::updateReferencePoint(
       reference_waypoint = current_trajectory_points[i];
       found_new_reference_point = true;
       reference_point.reference_type = ReferenceType::AvoidableStaticObstacle;
+      std::cerr << "Detect collision while updating reference point!!!!" << std::endl;
       break;
     }
     // find closest waypoint with flagged waypoint
@@ -1232,11 +1320,12 @@ bool FrenetPlanner::getOriginPointAndTargetPoint(
     origin_frenet_point = frenet_point;
     
     ReferencePoint frenet_target_point;
-    getReferencePoint(ego_pose.position,
+    getNewReferencePoint(ego_pose.position,
                       origin_frenet_point,
                       ego_linear_velocity,
                       reference_waypoints,
                       lane_points,
+                      objects,
                       frenet_target_point);
     current_target_point.reset(new ReferencePoint(frenet_target_point));
     
@@ -1289,7 +1378,6 @@ bool FrenetPlanner::getNextTargetPoint(
   double distance = calculate2DDistace(ego_pose.position,
                                        current_target_point->cartesian_point);
   
-  //
   //TODO: use of variable
   if(distance > 10 && !next_target_point)
   {
@@ -1308,12 +1396,13 @@ bool FrenetPlanner::getNextTargetPoint(
     }
     //make initinal target point
     ReferencePoint next_point;
-    getReferencePoint(
+    getNewReferencePoint(
       current_target_point->cartesian_point,
       current_target_point->frenet_point,
       origin_linear_velocity,
       reference_waypoints,
       lane_points,
+      objects,
       next_point);
     next_target_point.reset(new ReferencePoint(next_point));
     return true;
@@ -1340,4 +1429,21 @@ bool FrenetPlanner::getNextTargetPoint(
     }
     
   }
+}
+
+bool FrenetPlanner::isTrajectoryCollisionFree(
+    const std::vector<autoware_msgs::Waypoint>& trajectory_points,
+    const autoware_msgs::DetectedObjectArray& objects,
+    autoware_msgs::Waypoint& collision_waypoint)
+{
+  for(const auto& point: trajectory_points)
+  {
+    bool is_collision = isCollision(point, objects);
+    if(is_collision)
+    {
+      collision_waypoint = point;
+      return false;
+    }
+  }
+  return true;
 }

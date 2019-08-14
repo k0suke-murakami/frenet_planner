@@ -45,7 +45,8 @@ enum class ReferenceType
   Waypoint,
   AvoidableStaticObstacle,
   NonAvoidableStaticObstacle,
-  StopLine
+  StopLine,
+  Unknown
 };
 
 struct ReferencePoint
@@ -186,12 +187,13 @@ private:
         
         
   // pick up target point from reference waypoints
-  bool getReferencePoint(
+  bool getNewReferencePoint(
        const geometry_msgs::Point& origin_cartesian_point,
        const FrenetPoint& origin_frenet_point,
        const double origin_linear_velocity,
        const std::vector<autoware_msgs::Waypoint>& waypoints,
        const std::vector<Point>& lane_points,
+       const autoware_msgs::DetectedObjectArray& objects,
        ReferencePoint& reference_point
   );
   
@@ -247,6 +249,11 @@ private:
     std::unique_ptr<Trajectory>& kept_next_trajectory,
     std::unique_ptr<ReferencePoint>& current_target_point,
     std::unique_ptr<ReferencePoint>& next_target_point);
+    
+  bool isTrajectoryCollisionFree(
+    const std::vector<autoware_msgs::Waypoint>& trajectory_points,
+    const autoware_msgs::DetectedObjectArray& objects,
+    autoware_msgs::Waypoint& collision_waypoint);
   
 };
 
