@@ -40,6 +40,14 @@ struct FrenetPoint
   Eigen::Vector3d d_state;
 };
 
+enum class ReferenceType
+{
+  Waypoint,
+  AvoidableStaticObstacle,
+  NonAvoidableStaticObstacle,
+  StopLine
+};
+
 struct ReferencePoint
 {
   FrenetPoint frenet_point;
@@ -51,6 +59,7 @@ struct ReferencePoint
   double time_horizon;
   double time_horizon_offset;
   double time_horizon_sampling_resolution;
+  ReferenceType reference_type;
 };
 
 //TODO: change name to Trajectory

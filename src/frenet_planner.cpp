@@ -904,6 +904,7 @@ bool FrenetPlanner::getInitialTargetPoint(
   reference_point.time_horizon = 8.0;
   reference_point.time_horizon_offset = 6.0;
   reference_point.time_horizon_sampling_resolution = 2.0;
+  reference_point.reference_type = ReferenceType::Waypoint;
   
   reference_point.cartesian_point = target_waypoint.pose.pose.position;
   
@@ -964,6 +965,7 @@ bool FrenetPlanner::updateTargetPoint(
       // reference_waypoint.twist.twist.linear.x = 0.0;
       reference_waypoint = current_trajectory_points[i];
       found_new_reference_point = true;
+      reference_point.reference_type = ReferenceType::AvoidableStaticObstacle;
       break;
     }
     // find closest waypoint with flagged waypoint
@@ -976,6 +978,7 @@ bool FrenetPlanner::updateTargetPoint(
         min_dist = distance;
         reference_waypoint = flagged_waypoint;
         found_new_reference_point = true;
+        reference_point.reference_type = ReferenceType::StopLine;
         std::cerr << "found flagged point!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"  << std::endl;
         break;
       }
@@ -1003,7 +1006,6 @@ bool FrenetPlanner::updateTargetPoint(
   
   if(reference_waypoint.twist.twist.linear.x < 0.1)
   {
-    std::cerr << "yaeeeee"  << std::endl;
     reference_point.lateral_offset = 0.0;
     reference_point.lateral_sampling_resolution = 0.01;
     reference_point.longutudinal_offset = 0.0;
@@ -1014,7 +1016,6 @@ bool FrenetPlanner::updateTargetPoint(
   }
   else
   {
-    std::cerr << "noooo"  << std::endl;
     reference_point.lateral_offset = 4.0;
     reference_point.lateral_sampling_resolution = 2.0;
     reference_point.longutudinal_offset = 0.0;
@@ -1022,6 +1023,7 @@ bool FrenetPlanner::updateTargetPoint(
     reference_point.time_horizon = 8.0;
     reference_point.time_horizon_offset = 6.0;
     reference_point.time_horizon_sampling_resolution = 2.0;
+    
   }
   reference_point.cartesian_point = reference_waypoint.pose.pose.position;
   return found_new_reference_point;
