@@ -186,7 +186,7 @@ private:
         
         
   // pick up target point from reference waypoints
-  bool getInitialTargetPoint(
+  bool getTargetPoint(
        const geometry_msgs::Point& origin_cartesian_point,
        const double origin_linear_velocity,
        const std::vector<autoware_msgs::Waypoint>& waypoints,

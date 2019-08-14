@@ -848,7 +848,7 @@ bool FrenetPlanner::isFlaggedWaypointCloseWithPoint(
 
 
 //TODO: not considering the size of waypoints
-bool FrenetPlanner::getInitialTargetPoint(
+bool FrenetPlanner::getTargetPoint(
   const geometry_msgs::Point& origin_cartesian_point,
   const double origin_linear_velocity,  
   const std::vector<autoware_msgs::Waypoint>& waypoints,
@@ -1196,7 +1196,7 @@ bool FrenetPlanner::getOriginPointAndTargetPoint(
   else
   {
     ReferencePoint frenet_target_point;
-    getInitialTargetPoint(ego_pose.position,
+    getTargetPoint(ego_pose.position,
                           ego_linear_velocity,
                           reference_waypoints,
                           lane_points,
@@ -1290,7 +1290,7 @@ bool FrenetPlanner::getNextTargetPoint(
     }
     //make initinal target point
     ReferencePoint next_point;
-    getInitialTargetPoint(
+    getTargetPoint(
       current_target_point->cartesian_point,
       origin_linear_velocity,
       reference_waypoints,
