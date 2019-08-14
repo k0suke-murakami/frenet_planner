@@ -1052,7 +1052,8 @@ bool FrenetPlanner::isCollision(const autoware_msgs::Waypoint& waypoint,
     double distance = calculate2DDistace(waypoint.pose.pose.position,
                                           object.pose.position);
     //TODO: paremater
-    if(distance < 3)
+    //assuming obstacle is not car but corn
+    if(distance < 2.5)
     {
       return true;
     }
