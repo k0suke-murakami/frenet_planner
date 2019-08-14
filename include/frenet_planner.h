@@ -85,13 +85,7 @@ public:
   
   
 private:
-  // geometry_msgs::PoseStamped current_goal_;
-  // double target_s_position_;
-  // double target_d_position_;
-  
   int debug_change_traj_count_;
-  // int min_num_trajectory_points_;
-  // double time_horizon_;
   double dt_for_sampling_points_;
   double search_radius_for_target_point_;
   
@@ -103,7 +97,6 @@ private:
   std::unique_ptr<FrenetPoint> frenet_target_trajectory_point_;
   
   std::unique_ptr<Trajectory> kept_next_trajectory_;
-  // std::unique_ptr<autoware_msgs::Waypoint> frenet_reference_trajectory_point_;
   
   
   std::unique_ptr<ReferencePoint> kept_current_reference_point_;
