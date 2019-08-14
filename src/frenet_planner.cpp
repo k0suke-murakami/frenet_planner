@@ -1,3 +1,6 @@
+#include <autoware_msgs/LaneArray.h>
+#include <autoware_msgs/DetectedObjectArray.h>
+
 #include <tf2/utils.h>
 #include <tf/transform_datatypes.h>
 

@@ -17,21 +17,22 @@
 #ifndef FRENET_PLANNER_H
 #define FRENET_PLANNER_H
 
-// #include <memory>
 
 #include <queue>
 
 #include <geometry_msgs/TransformStamped.h>
-#include <grid_map_core/GridMap.hpp>
-#include <autoware_msgs/LaneArray.h>
-#include <autoware_msgs/DetectedObjectArray.h>
-
 
 
 //headers in Eigen
 #include <Eigen/Core>
 
 #include "vectormap_struct.h"
+
+namespace autoware_msgs
+{
+  ROS_DECLARE_MESSAGE(Lane); 
+  ROS_DECLARE_MESSAGE(DetectedObjectArray); 
+}
 
 struct FrenetPoint
 {

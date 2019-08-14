@@ -17,21 +17,31 @@
 #ifndef FRENET_PLANNER_ROS_H
 #define FRENET_PLANNER_ROS_H
 
-#include <grid_map_msgs/GridMap.h>
-#include <grid_map_core/GridMap.hpp>
 #include <geometry_msgs/TransformStamped.h>
-#include <autoware_msgs/Lane.h>
-#include <autoware_msgs/DetectedObjectArray.h>
 #include "vectormap_struct.h"
 
 
-namespace tf2_ros{
+namespace tf2_ros
+{
   class Buffer;
   class TransformListener;
 }
+
 class FrenetPlanner;
 class VectorMap;
 class CalculateCenterLine;
+
+namespace autoware_msgs
+{
+  ROS_DECLARE_MESSAGE(Lane); 
+  ROS_DECLARE_MESSAGE(DetectedObjectArray); 
+}
+
+namespace geometry_msgs
+{ 
+  ROS_DECLARE_MESSAGE(PoseStamped);
+  ROS_DECLARE_MESSAGE(TwistStamped);
+}
 
 class FrenetPlannerROS
 {

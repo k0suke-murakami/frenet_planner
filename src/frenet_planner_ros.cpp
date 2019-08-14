@@ -31,6 +31,9 @@
 
 #include <grid_map_ros/GridMapRosConverter.hpp>
 
+#include <autoware_msgs/Lane.h>
+#include <autoware_msgs/DetectedObjectArray.h>
+
 #include "frenet_planner.h"
 #include "vectormap_ros.h"
 #include "calculate_center_line.h"
