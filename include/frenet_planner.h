@@ -18,15 +18,15 @@
 #define FRENET_PLANNER_H
 
 
-#include <queue>
-
 #include <geometry_msgs/TransformStamped.h>
 
 
 //headers in Eigen
 #include <Eigen/Core>
 
-#include "vectormap_struct.h"
+
+struct Point;
+
 
 namespace autoware_msgs
 {

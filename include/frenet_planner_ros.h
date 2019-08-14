@@ -18,8 +18,8 @@
 #define FRENET_PLANNER_ROS_H
 
 #include <geometry_msgs/TransformStamped.h>
-#include "vectormap_struct.h"
 
+struct Point;
 
 namespace tf2_ros
 {

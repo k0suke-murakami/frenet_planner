@@ -36,6 +36,8 @@
 
 #include "frenet_planner.h"
 #include "vectormap_ros.h"
+#include "vectormap_struct.h"
+
 #include "calculate_center_line.h"
 
 #include "frenet_planner_ros.h"

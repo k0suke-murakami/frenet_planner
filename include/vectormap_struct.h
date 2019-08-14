@@ -4,14 +4,6 @@
 
 #include <vector>
 
-enum GoalLaneType
-{   Left = 0, 
-    Straight = 1, 
-    Right = 2,
-    NotGoal = 3
-};
-
-//TODO: change name to map struct
 
 
 struct Point
