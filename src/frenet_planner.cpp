@@ -848,13 +848,15 @@ bool FrenetPlanner::isFlaggedWaypointCloseWithPoint(
 
 
 //TODO: not considering the size of waypoints
-bool FrenetPlanner::getTargetPoint(
+bool FrenetPlanner::getReferencePoint(
   const geometry_msgs::Point& origin_cartesian_point,
+  const FrenetPoint& origin_frenet_point,
   const double origin_linear_velocity,  
-  const std::vector<autoware_msgs::Waypoint>& waypoints,
+  const std::vector<autoware_msgs::Waypoint>& reference_waypoints,
   const std::vector<Point>& lane_points,
   ReferencePoint& reference_point)
 {
+  //change look ahead distance based on current velocity
   const double lookahead_distance_ratio = 4.0;
   double lookahead_distance = fabs(origin_linear_velocity) * lookahead_distance_ratio;
   const double minimum_lookahed_distance = 12.0;
@@ -865,7 +867,7 @@ bool FrenetPlanner::getTargetPoint(
   
   double max_distance = -9999;
   autoware_msgs::Waypoint target_waypoint;
-  for(const auto& waypoint: waypoints)
+  for(const auto& waypoint: reference_waypoints)
   {
     double dx = waypoint.pose.pose.position.x - origin_cartesian_point.x;
     double dy = waypoint.pose.pose.position.y - origin_cartesian_point.y;
@@ -894,9 +896,21 @@ bool FrenetPlanner::getTargetPoint(
   frenet_d << frenet_d_position,
               0,
               0;
-  reference_point.frenet_point.s_state = frenet_s;
-  reference_point.frenet_point.d_state = frenet_d;
+  FrenetPoint target_frenet_point;
+  target_frenet_point.d_state = frenet_d;
+  target_frenet_point.s_state = frenet_s;
   
+  double time_horizon = 8.0;
+  Trajectory trajectory;
+  getTrajectory(lane_points,
+                reference_waypoints,
+                origin_frenet_point,
+                target_frenet_point,
+                time_horizon,
+                dt_for_sampling_points_,
+                trajectory);
+  
+  reference_point.frenet_point = target_frenet_point;
   reference_point.lateral_offset = 4.0;
   reference_point.lateral_sampling_resolution = 2.0;
   reference_point.longutudinal_offset = 0.0;
@@ -908,9 +922,11 @@ bool FrenetPlanner::getTargetPoint(
   
   reference_point.cartesian_point = target_waypoint.pose.pose.position;
   
+  
+  
 }
 
-bool FrenetPlanner::updateTargetPoint(
+bool FrenetPlanner::updateReferencePoint(
     const std::unique_ptr<Trajectory>& kept_trajectory,
     const std::vector<autoware_msgs::Waypoint>& local_reference_waypoints,
     const std::vector<Point>& lane_points,    
@@ -921,7 +937,7 @@ bool FrenetPlanner::updateTargetPoint(
   
   if(!kept_trajectory)
   {
-    std::cerr << "error: kept trajectory coulf not be nullptr in updateTargetPoint" << std::endl;
+    std::cerr << "error: kept trajectory coulf not be nullptr in updateReferencePoint" << std::endl;
     return false;
   }
   
@@ -1159,7 +1175,7 @@ bool FrenetPlanner::getOriginPointAndTargetPoint(
     const std::vector<Point>& lane_points,
     const autoware_msgs::DetectedObjectArray& objects,
     std::unique_ptr<Trajectory>& kept_current_trajectory,  
-    FrenetPoint& origin_point,
+    FrenetPoint& origin_frenet_point,
     std::unique_ptr<ReferencePoint>& current_target_point)
 {
   //TODO: seek more readable code
@@ -1173,11 +1189,11 @@ bool FrenetPlanner::getOriginPointAndTargetPoint(
     }
     else
     {
-      origin_point = kept_current_trajectory->frenet_trajectory_points.front(); 
+      origin_frenet_point = kept_current_trajectory->frenet_trajectory_points.front(); 
     }
     
     ReferencePoint target_point;
-    if(updateTargetPoint(kept_current_trajectory_,
+    if(updateReferencePoint(kept_current_trajectory_,
                       reference_waypoints,
                       lane_points,
                       objects,
@@ -1195,14 +1211,6 @@ bool FrenetPlanner::getOriginPointAndTargetPoint(
   }
   else
   {
-    ReferencePoint frenet_target_point;
-    getTargetPoint(ego_pose.position,
-                          ego_linear_velocity,
-                          reference_waypoints,
-                          lane_points,
-                          frenet_target_point);
-    current_target_point.reset(new ReferencePoint(frenet_target_point));
-    
     //calculate origin_point
     double frenet_s_position, frenet_d_position;
     convertCartesianPosition2FrenetPosition(
@@ -1221,7 +1229,17 @@ bool FrenetPlanner::getOriginPointAndTargetPoint(
     FrenetPoint frenet_point;
     frenet_point.s_state = frenet_s;
     frenet_point.d_state = frenet_d;
-    origin_point = frenet_point;
+    origin_frenet_point = frenet_point;
+    
+    ReferencePoint frenet_target_point;
+    getReferencePoint(ego_pose.position,
+                      origin_frenet_point,
+                      ego_linear_velocity,
+                      reference_waypoints,
+                      lane_points,
+                      frenet_target_point);
+    current_target_point.reset(new ReferencePoint(frenet_target_point));
+    
     return true;
   }
 }
@@ -1290,8 +1308,9 @@ bool FrenetPlanner::getNextTargetPoint(
     }
     //make initinal target point
     ReferencePoint next_point;
-    getTargetPoint(
+    getReferencePoint(
       current_target_point->cartesian_point,
+      current_target_point->frenet_point,
       origin_linear_velocity,
       reference_waypoints,
       lane_points,
@@ -1303,7 +1322,7 @@ bool FrenetPlanner::getNextTargetPoint(
   {
     //update target point if something is on trajectory
     ReferencePoint next_point;
-    if(updateTargetPoint(kept_next_trajectory,
+    if(updateReferencePoint(kept_next_trajectory,
                       reference_waypoints,
                       lane_points,
                       objects,

@@ -186,8 +186,9 @@ private:
         
         
   // pick up target point from reference waypoints
-  bool getTargetPoint(
+  bool getReferencePoint(
        const geometry_msgs::Point& origin_cartesian_point,
+       const FrenetPoint& origin_frenet_point,
        const double origin_linear_velocity,
        const std::vector<autoware_msgs::Waypoint>& waypoints,
        const std::vector<Point>& lane_points,
@@ -196,7 +197,7 @@ private:
   
   
   // pick up new target point from kept_trajectory/lane points
-  bool updateTargetPoint(
+  bool updateReferencePoint(
     const std::unique_ptr<Trajectory>& kept_trajectory,
     const std::vector<autoware_msgs::Waypoint>& waypoints,
     const std::vector<Point>& lane_points,
@@ -233,7 +234,7 @@ private:
     const std::vector<Point>& lane_points,
     const autoware_msgs::DetectedObjectArray& objects,
     std::unique_ptr<Trajectory>& kept_current_trajectory,  
-    FrenetPoint& origin_point,
+    FrenetPoint& origin_frenet_point,
     std::unique_ptr<ReferencePoint>& current_target_point);
     
   bool getNextTargetPoint(
