@@ -136,7 +136,7 @@ void FrenetPlanner::doPlan(const geometry_msgs::PoseStamped& in_current_pose,
                       in_nearest_lane_points,
                       in_objects,
                       in_reference_waypoints, 
-                      kept_current_reference_point_->frenet_point,
+                      kept_current_reference_point_,
                       kept_current_trajectory_);
     // std::cerr << "after pick up best trajectory" << std::endl;
   }
@@ -177,7 +177,7 @@ void FrenetPlanner::doPlan(const geometry_msgs::PoseStamped& in_current_pose,
                       in_nearest_lane_points,
                       in_objects,
                       in_reference_waypoints, 
-                      kept_next_reference_point_->frenet_point,
+                      kept_next_reference_point_,
                       kept_next_trajectory_);
   }
   else
@@ -195,6 +195,7 @@ void FrenetPlanner::doPlan(const geometry_msgs::PoseStamped& in_current_pose,
   else
   {
     std::cerr << "next trajectory is not nullptr" << std::endl;
+    std::cerr << "wp size for current trajectory " << kept_current_trajectory_->trajectory_points.waypoints.size()<< std::endl;
     std::cerr << "wp size for next trajectory " << kept_next_trajectory_->trajectory_points.waypoints.size()<< std::endl;
     // make sure concat befor call kept_next_trajectory_.reset()
     out_trajectory.waypoints.insert(out_trajectory.waypoints.end(),
@@ -630,7 +631,7 @@ bool FrenetPlanner::getBestTrajectory(
       const std::vector<Point>& lane_points,
       const autoware_msgs::DetectedObjectArray& objects,
       const std::vector<autoware_msgs::Waypoint>& reference_waypoints, 
-      const FrenetPoint& frenet_reference_trajectory_point,
+      std::unique_ptr<ReferencePoint>& kept_reference_point,
       std::unique_ptr<Trajectory>& kept_best_trajectory)
 {
   std::vector<double> costs;
@@ -654,9 +655,10 @@ bool FrenetPlanner::getBestTrajectory(
     
     //calculate terminal cost
     FrenetPoint frenet_point_at_time_horizon = trajectory.frenet_trajectory_points.back();
-    double ref_last_waypoint_cost = std::pow(frenet_point_at_time_horizon.d_state(0) - frenet_reference_trajectory_point.d_state(0), 2) + 
-                                std::pow(frenet_point_at_time_horizon.s_state(0) - frenet_reference_trajectory_point.s_state(0), 2) +
-                                std::pow(frenet_point_at_time_horizon.s_state(1) - frenet_reference_trajectory_point.s_state(1), 2);
+    double ref_last_waypoint_cost = 
+    std::pow(frenet_point_at_time_horizon.d_state(0) - kept_reference_point->frenet_point.d_state(0), 2) + 
+    std::pow(frenet_point_at_time_horizon.s_state(0) - kept_reference_point->frenet_point.s_state(0), 2) +
+    std::pow(frenet_point_at_time_horizon.s_state(1) - kept_reference_point->frenet_point.s_state(1), 2);
     double sum_cost = ref_waypoints_cost + ref_last_waypoint_cost;
     costs.push_back(sum_cost);
     
@@ -668,15 +670,24 @@ bool FrenetPlanner::getBestTrajectory(
   std::sort(indexes.begin(), indexes.end(), [&costs](const size_t &a, const size_t &b)
                                                { return costs[a] < costs[b];});
   
+  bool has_got_best_trajectory = false;
   for(const auto& index: indexes)
   {
     if(isTrajectoryCollisionFree(
       trajectories[index].trajectory_points.waypoints,
       objects))
     {
+      has_got_best_trajectory = true;
       kept_best_trajectory.reset(new Trajectory(trajectories[index]));
     }
   } 
+  
+  if(!has_got_best_trajectory)
+  {
+    std::cerr << "calling null update!!!!"  << std::endl;
+    kept_reference_point = nullptr;
+    kept_best_trajectory = nullptr;
+  }
 }
 
 
@@ -1209,19 +1220,18 @@ bool FrenetPlanner::getNextTargetPoint(
       current_target_point.reset(new ReferencePoint(*next_target_point));
       next_target_point = nullptr;
       
-    //   if(kept_current_trajectory_->trajectory_points.waypoints.size()==1)
-    // {
-      kept_current_trajectory->trajectory_points.waypoints.insert
-              (kept_current_trajectory->trajectory_points.waypoints.end(),
-                kept_next_trajectory->trajectory_points.waypoints.begin(),
-                kept_next_trajectory->trajectory_points.waypoints.end());
-      kept_current_trajectory->frenet_trajectory_points.insert
-              (kept_current_trajectory->frenet_trajectory_points.end(),
-                kept_next_trajectory->frenet_trajectory_points.begin(),
-                kept_next_trajectory->frenet_trajectory_points.end());
-      //TODO: seek better way 
+      if(kept_next_trajectory)
+      {
+        kept_current_trajectory->trajectory_points.waypoints.insert
+                (kept_current_trajectory->trajectory_points.waypoints.end(),
+                  kept_next_trajectory->trajectory_points.waypoints.begin(),
+                  kept_next_trajectory->trajectory_points.waypoints.end());
+        kept_current_trajectory->frenet_trajectory_points.insert
+                (kept_current_trajectory->frenet_trajectory_points.end(),
+                  kept_next_trajectory->frenet_trajectory_points.begin(),
+                  kept_next_trajectory->frenet_trajectory_points.end());
+      }
       kept_next_trajectory = nullptr;
-    // }
       std::cerr << "replace curernt target with next target" << std::endl;
       //false = no need to draw trajectory and get best trajectory        
     }

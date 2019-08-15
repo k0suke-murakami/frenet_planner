@@ -174,7 +174,7 @@ private:
     const std::vector<Point>& lane_points,
     const autoware_msgs::DetectedObjectArray& objects,
     const std::vector<autoware_msgs::Waypoint>& cropped_reference_waypoints,
-    const FrenetPoint& frenet_reference_trajectory_point,
+    std::unique_ptr<ReferencePoint>& kept_reference_point,    
     std::unique_ptr<Trajectory>& kept_best_trajectory);
   
   //assume the interface with behaior planner in new planning architecture
@@ -260,6 +260,7 @@ private:
     const std::vector<autoware_msgs::Waypoint>& trajectory_points,
     const autoware_msgs::DetectedObjectArray& objects,
     autoware_msgs::Waypoint& collision_waypoint);
+    
   bool isTrajectoryCollisionFree(
     const std::vector<autoware_msgs::Waypoint>& trajectory_points,
     const autoware_msgs::DetectedObjectArray& objects);
