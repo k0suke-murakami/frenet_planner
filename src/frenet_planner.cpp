@@ -74,39 +74,7 @@ void FrenetPlanner::doPlan(const geometry_msgs::PoseStamped& in_current_pose,
               autoware_msgs::Lane& out_trajectory,
               std::vector<autoware_msgs::Lane>& out_debug_trajectories,
               std::vector<geometry_msgs::Point>& out_target_points)
-{ 
-  
-  // update kept_trajectory based on current pose
-  if(kept_current_trajectory_)
-  {
-    // std::cerr << "before crop " << kept_current_trajectory_->trajectory_points.waypoints.size() << std::endl;
-    autoware_msgs::Waypoint current_nearest_trajectory_point;
-    getNearestWaypoint(in_current_pose.pose.position,
-                      kept_current_trajectory_->trajectory_points.waypoints,
-                      current_nearest_trajectory_point);
-    Trajectory dc_kept_trajectory = *kept_current_trajectory_;
-    for(const auto& waypoint: dc_kept_trajectory.trajectory_points.waypoints)
-    {
-      double distance = calculate2DDistace(waypoint.pose.pose.position, 
-                                         current_nearest_trajectory_point.pose.pose.position);
-      
-      //TODO: counter-intuitive make it more readble
-      if(distance > 0.01)
-      {
-          kept_current_trajectory_->trajectory_points.waypoints.erase(
-            kept_current_trajectory_->trajectory_points.waypoints.begin());
-          kept_current_trajectory_->frenet_trajectory_points.erase(
-            kept_current_trajectory_->frenet_trajectory_points.begin());
-      }
-      else
-      {
-        break;
-      }
-    }
-    // std::cerr << "after crop "<< kept_current_trajectory_->trajectory_points.waypoints.size()  << std::endl;
-  }
-  
-  
+{   
   //TODO: seek more readable code
   //TODO: think the interface between the components
   FrenetPoint origin_point;
@@ -163,10 +131,6 @@ void FrenetPlanner::doPlan(const geometry_msgs::PoseStamped& in_current_pose,
   {
     
     std::cerr << "log: update [next] referece point" << std::endl;
-    // std::cerr << "next origin s " << kept_current_reference_point_->frenet_point.s_state << std::endl;
-    // std::cerr << "next origin d " << kept_current_reference_point_->frenet_point.d_state << std::endl;
-    // std::cerr << "next target s " << kept_next_reference_point_->frenet_point.s_state << std::endl;
-    // std::cerr << "next target d " << kept_next_reference_point_->frenet_point.d_state << std::endl;
     //validity
     //draw trajectories
     std::vector<Trajectory> trajectories;
@@ -207,8 +171,6 @@ void FrenetPlanner::doPlan(const geometry_msgs::PoseStamped& in_current_pose,
                                     kept_next_trajectory_->trajectory_points.waypoints.end());
 
   }
-  
-  
   //for debug
   if(kept_next_reference_point_)
   {
@@ -1055,11 +1017,12 @@ bool FrenetPlanner::isCollision(const autoware_msgs::Waypoint& waypoint,
 //TODO: might make this rich
 bool FrenetPlanner::isReferencePointValid(
   const geometry_msgs::Pose& ego_pose,
-  const geometry_msgs::Point& cartesian_target_point,
+  const geometry_msgs::Point& cartesian_reference_point,
   const geometry_msgs::Point& last_reference_waypoint,
   const size_t num_kept_current_trajectory_points)
 {
-  double distance = calculate2DDistace(cartesian_target_point,
+  //check if reference point is at the end of global waypoints
+  double distance = calculate2DDistace(cartesian_reference_point,
                                        last_reference_waypoint);
   // std::cerr << "dist current target and last wp " << distance << std::endl;
   if(distance<0.1)
@@ -1067,21 +1030,24 @@ bool FrenetPlanner::isReferencePointValid(
     return true;
   }
   
+  // check if kept_current_trahectory is too short
+  // if too short, current reference point is no longer valid
   //TODO: use of parameter/variable
-  if(num_kept_current_trajectory_points <= 1)
+  if(num_kept_current_trajectory_points <= 3)
   {
     return false;
   }
   
+  // check if current_reference_point is behingd ego 
   geometry_msgs::Point relative_cartesian_point =  
-  transformToRelativeCoordinate2D(cartesian_target_point, ego_pose);
+  transformToRelativeCoordinate2D(cartesian_reference_point, ego_pose);
   double angle = std::atan2(relative_cartesian_point.y, relative_cartesian_point.x);
   
   //       |
-  //       | abs(angle)>PI/2
+  //       | abs(angle)<PI/2
   //------ego-------
   //       | 
-  //       | abs(angle)<PI/2
+  //       | abs(angle)>PI/2
   //
   if(std::abs(angle) < M_PI/2)
   {
@@ -1158,6 +1124,43 @@ bool FrenetPlanner::getOriginPointAndTargetPoint(
     FrenetPoint& origin_frenet_point,
     std::unique_ptr<ReferencePoint>& current_target_point)
 {
+  // update kept_trajectory based on current pose
+  if(kept_current_trajectory)
+  {
+    std::cerr << "before crop " << kept_current_trajectory_->trajectory_points.waypoints.size() << std::endl;
+    // autoware_msgs::Waypoint current_nearest_trajectory_point;
+    // getNearestWaypoint(ego_pose.position,
+    //                   kept_current_trajectory->trajectory_points.waypoints,
+    //                   current_nearest_trajectory_point);
+    Trajectory dc_kept_trajectory = *kept_current_trajectory;
+    for(const auto& waypoint: dc_kept_trajectory.trajectory_points.waypoints)
+    {
+      if(kept_current_trajectory->trajectory_points.waypoints.size() <= 2)
+      {
+        break;
+      }
+      //TODO: make method for this
+      // check if current_point is behingd ego 
+      geometry_msgs::Point relative_cartesian_point =  
+      transformToRelativeCoordinate2D(waypoint.pose.pose.position, ego_pose);
+      double angle = std::atan2(relative_cartesian_point.y, relative_cartesian_point.x);
+      //       |
+      //       | abs(angle)<PI/2
+      //------ego-------
+      //       | 
+      //       | abs(angle)>PI/2
+      //
+      if(std::abs(angle) > M_PI/2)
+      {
+        kept_current_trajectory->trajectory_points.waypoints.erase(
+            kept_current_trajectory->trajectory_points.waypoints.begin());
+        kept_current_trajectory->frenet_trajectory_points.erase(
+          kept_current_trajectory->frenet_trajectory_points.begin());
+      }
+    }
+    std::cerr << "after crop "<< kept_current_trajectory_->trajectory_points.waypoints.size()  << std::endl;
+  }
+  
   //TODO: seek more readable code
   //TODO: think the interface between the components
   bool is_new_reference_point = false;
