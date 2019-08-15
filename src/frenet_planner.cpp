@@ -79,7 +79,7 @@ void FrenetPlanner::doPlan(const geometry_msgs::PoseStamped& in_current_pose,
   // update kept_trajectory based on current pose
   if(kept_current_trajectory_)
   {
-    std::cerr << "before crop " << kept_current_trajectory_->trajectory_points.waypoints.size() << std::endl;
+    // std::cerr << "before crop " << kept_current_trajectory_->trajectory_points.waypoints.size() << std::endl;
     autoware_msgs::Waypoint current_nearest_trajectory_point;
     getNearestWaypoint(in_current_pose.pose.position,
                       kept_current_trajectory_->trajectory_points.waypoints,
@@ -103,7 +103,7 @@ void FrenetPlanner::doPlan(const geometry_msgs::PoseStamped& in_current_pose,
         break;
       }
     }
-    std::cerr << "after crop "<< kept_current_trajectory_->trajectory_points.waypoints.size()  << std::endl;
+    // std::cerr << "after crop "<< kept_current_trajectory_->trajectory_points.waypoints.size()  << std::endl;
   }
   
   
@@ -120,7 +120,7 @@ void FrenetPlanner::doPlan(const geometry_msgs::PoseStamped& in_current_pose,
      origin_point,
      kept_current_reference_point_))
   {
-    std::cerr << "get new current target point " << std::endl;
+    std::cerr << "log: update [current] reference point " << std::endl;
     std::vector<Trajectory> trajectories;
     drawTrajectories(origin_point,
                     *kept_current_reference_point_,
@@ -128,7 +128,7 @@ void FrenetPlanner::doPlan(const geometry_msgs::PoseStamped& in_current_pose,
                     in_reference_waypoints,
                     trajectories,
                     out_debug_trajectories);
-    std::cerr << "after draw trajectories for current target point" << std::endl;
+    // std::cerr << "after draw trajectories for current target point" << std::endl;
     // std::cerr << "num traj " << trajectories.size() << std::endl;
     
     //TODO: is_no_potential_accident comes from getBestTrajectory's output?
@@ -138,8 +138,13 @@ void FrenetPlanner::doPlan(const geometry_msgs::PoseStamped& in_current_pose,
                       in_reference_waypoints, 
                       kept_current_reference_point_->frenet_point,
                       kept_current_trajectory_);
-    std::cerr << "after pick up best trajectory" << std::endl;
+    // std::cerr << "after pick up best trajectory" << std::endl;
   }
+  else
+  {
+    std::cerr << "log: not update [current] refenrence point"  << std::endl;
+  }
+  
   
   if(kept_current_reference_point_)
   {
@@ -157,7 +162,7 @@ void FrenetPlanner::doPlan(const geometry_msgs::PoseStamped& in_current_pose,
                         kept_next_reference_point_))
   {
     
-    std::cerr << "wip: pick up best traj for next target point" << std::endl;
+    std::cerr << "log: update [next] referece point" << std::endl;
     //validity
     //draw trajectories
     std::vector<Trajectory> trajectories;
@@ -175,6 +180,11 @@ void FrenetPlanner::doPlan(const geometry_msgs::PoseStamped& in_current_pose,
                       kept_next_reference_point_->frenet_point,
                       kept_next_trajectory_);
   }
+  else
+  {
+    std::cerr << "log: not update [next] reference point"  << std::endl;
+  }
+  
    
   //concate trajectory and make output
   out_trajectory.waypoints = kept_current_trajectory_->trajectory_points.waypoints;
@@ -987,6 +997,9 @@ bool FrenetPlanner::getNewReferencePoint(
     reference_point.reference_type = ReferenceType::Waypoint;
     reference_point.cartesian_point = target_cartesian_point;
   }
+  std::cerr << "reference cartesian point " 
+            << reference_point.cartesian_point.x << " "
+            << reference_point.cartesian_point.y << std::endl;
 }
 
 bool FrenetPlanner::updateReferencePoint(
@@ -1045,7 +1058,7 @@ bool FrenetPlanner::updateReferencePoint(
       reference_waypoint = current_trajectory_points[i];
       found_new_reference_point = true;
       reference_point.reference_type = ReferenceType::AvoidableStaticObstacle;
-      std::cerr << "Detect collision while updating reference point!!!!" << std::endl;
+      std::cerr << "Detect collision while updating reference point!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::endl;
       break;
     }
     // find closest waypoint with flagged waypoint
@@ -1145,7 +1158,7 @@ bool FrenetPlanner::isReferencePointValid(
 {
   double distance = calculate2DDistace(cartesian_target_point,
                                        last_reference_waypoint);
-  std::cerr << "dist current target and last wp " << distance << std::endl;
+  // std::cerr << "dist current target and last wp " << distance << std::endl;
   if(distance<0.1)
   {
     return true;
