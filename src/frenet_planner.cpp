@@ -192,7 +192,7 @@ void FrenetPlanner::doPlan(const geometry_msgs::PoseStamped& in_current_pose,
    
   //concate trajectory and make output
   out_trajectory.waypoints = kept_current_trajectory_->trajectory_points.waypoints;
-  // std::cerr << "wp size for current trajectory " << kept_current_trajectory_->trajectory_points.waypoints.size()<< std::endl;
+  std::cerr << "wp size for current trajectory " << kept_current_trajectory_->trajectory_points.waypoints.size()<< std::endl;
   if(!kept_next_trajectory_)
   {
     std::cerr << "next trajectory nullptr "  << std::endl;
@@ -200,7 +200,7 @@ void FrenetPlanner::doPlan(const geometry_msgs::PoseStamped& in_current_pose,
   else
   {
     std::cerr << "next trajectory is not nullptr" << std::endl;
-    // std::cerr << "wp size for next trajectory " << kept_next_trajectory_->trajectory_points.waypoints.size()<< std::endl;
+    std::cerr << "wp size for next trajectory " << kept_next_trajectory_->trajectory_points.waypoints.size()<< std::endl;
     // make sure concat befor call kept_next_trajectory_.reset()
     out_trajectory.waypoints.insert(out_trajectory.waypoints.end(),
                                     kept_next_trajectory_->trajectory_points.waypoints.begin(),
@@ -1260,36 +1260,8 @@ bool FrenetPlanner::getNextTargetPoint(
   double distance = calculate2DDistace(ego_pose.position,
                                        current_target_point->cartesian_point);
   
-  //TODO: use of variable
-  if(distance > 10 && !next_target_point)
-  {
-    std::cerr << "false: distance above 10m and next target is nullptr"  << std::endl;
-    // no need to create new next target
-    return false;
-  }
-  else if(distance < 10 && !next_target_point)
-  {
-    double distance_between_last_wp_and_target = 
-    calculate2DDistace(reference_waypoints.back().pose.pose.position,
-                       current_target_point->cartesian_point);
-    if(distance_between_last_wp_and_target < 0.1)
-    {
-      return false;
-    }
-    //make initinal target point
-    ReferencePoint next_point;
-    getNewReferencePoint(
-      current_target_point->cartesian_point,
-      current_target_point->frenet_point,
-      origin_linear_velocity,
-      reference_waypoints,
-      lane_points,
-      objects,
-      next_point);
-    next_target_point.reset(new ReferencePoint(next_point));
-    return true;
-  }
-  else
+  bool is_new_reference_point = false;
+  if(next_target_point)
   {
     //update target point if something is on trajectory
     ReferencePoint next_point;
@@ -1302,15 +1274,35 @@ bool FrenetPlanner::getNextTargetPoint(
     {
       std::cerr << "updating next reference point" << std::endl;
       next_target_point.reset(new ReferencePoint(next_point));
-      return true;
+      is_new_reference_point =  true;
     }
-    else
-    {
-      //next point has not been changed
-      return false;
-    }
-    
   }
+  else if(distance < 10 && !next_target_point)
+  {
+    //TODO: keep this bracket for stopline 
+    // double distance_between_last_wp_and_target = 
+    // calculate2DDistace(reference_waypoints.back().pose.pose.position,
+    //                    current_target_point->cartesian_point);
+    // if(distance_between_last_wp_and_target < 0.1)
+    // {
+    //   return false;
+    // }
+    
+    //make initinal target point
+    ReferencePoint next_point;
+    getNewReferencePoint(
+      current_target_point->cartesian_point,
+      current_target_point->frenet_point,
+      origin_linear_velocity,
+      reference_waypoints,
+      lane_points,
+      objects,
+      next_point);
+    next_target_point.reset(new ReferencePoint(next_point));
+    is_new_reference_point = true;
+  }
+  
+  return is_new_reference_point;
 }
 
 //TODO: not good interface; has 2 meanings check if safe, get collision waypoint
