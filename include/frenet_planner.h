@@ -255,7 +255,8 @@ private:
     std::unique_ptr<Trajectory>& kept_current_trajectory,
     std::unique_ptr<Trajectory>& kept_next_trajectory,
     std::unique_ptr<ReferencePoint>& current_target_point,
-    std::unique_ptr<ReferencePoint>& next_target_point);
+    std::unique_ptr<ReferencePoint>& next_target_point,
+    FrenetPoint& next_origin_point);
     
   bool isTrajectoryCollisionFree(
     const std::vector<autoware_msgs::Waypoint>& trajectory_points,

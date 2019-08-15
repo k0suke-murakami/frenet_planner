@@ -119,6 +119,7 @@ void FrenetPlanner::doPlan(const geometry_msgs::PoseStamped& in_current_pose,
     out_target_points.push_back(kept_current_reference_point_->cartesian_point);
   }
   
+  FrenetPoint next_origin_point;  
   if(getNextTargetPoint(in_current_pose.pose,
                         kept_current_trajectory_->trajectory_points.waypoints.back().twist.twist.linear.x,
                         in_reference_waypoints,
@@ -127,14 +128,15 @@ void FrenetPlanner::doPlan(const geometry_msgs::PoseStamped& in_current_pose,
                         kept_current_trajectory_,
                         kept_next_trajectory_,
                         kept_current_reference_point_,
-                        kept_next_reference_point_))
+                        kept_next_reference_point_,
+                        next_origin_point))
   {
     
     std::cerr << "log: update [next] referece point" << std::endl;
     //validity
     //draw trajectories
     std::vector<Trajectory> trajectories;
-    drawTrajectories(kept_current_trajectory_->frenet_trajectory_points.back(),
+    drawTrajectories(next_origin_point,
                     *kept_next_reference_point_,
                     in_nearest_lane_points,
                     in_reference_waypoints,
@@ -1221,7 +1223,8 @@ bool FrenetPlanner::getNextTargetPoint(
     std::unique_ptr<Trajectory>& kept_current_trajectory,
     std::unique_ptr<Trajectory>& kept_next_trajectory,
     std::unique_ptr<ReferencePoint>& current_target_point,
-    std::unique_ptr<ReferencePoint>& next_target_point)
+    std::unique_ptr<ReferencePoint>& next_target_point,
+    FrenetPoint& next_origin_point)
 {
   if(!isReferencePointValid(ego_pose,
                            current_target_point->cartesian_point,
@@ -1304,7 +1307,40 @@ bool FrenetPlanner::getNextTargetPoint(
     next_target_point.reset(new ReferencePoint(next_point));
     is_new_reference_point = true;
   }
+  if(!is_new_reference_point)
+  {
+    // next_origin_point = kept_current_trajectory->frenet_trajectory_points.back();
+    return is_new_reference_point;
+  }
+  next_origin_point = kept_current_trajectory->frenet_trajectory_points.back();
   
+  double distance_from_last_wp_to_next_reference_point = calculate2DDistace(
+    kept_current_trajectory->trajectory_points.waypoints.back().pose.pose.position,
+    next_target_point->cartesian_point);
+  //TODO: calculate this value by constrained optimization
+  const double minimum_distance_to_converge = 6;
+  if(distance_from_last_wp_to_next_reference_point < minimum_distance_to_converge)
+  {
+    std::cerr << "offseeeeeeeeeeeeeeeeeeeeeeet"  << std::endl;
+    double min_dist = 99999;
+    const std::vector<autoware_msgs::Waypoint> waypoints = 
+    kept_current_trajectory->trajectory_points.waypoints;
+    for(size_t i = 0; i < waypoints.size(); i++)
+    {
+      double dist = calculate2DDistace(waypoints[i].pose.pose.position,
+                                       next_target_point->cartesian_point);
+      if(dist < min_dist && dist > minimum_distance_to_converge)
+      {
+        std::cerr << "offset min dist " << min_dist << std::endl;
+        min_dist = dist;
+        next_origin_point = kept_current_trajectory->frenet_trajectory_points[i];
+      }
+    }
+    if((min_dist - 99999)  < 0.1)
+    {
+      std::cerr << "failed offset"  << std::endl;
+    }
+  }
   return is_new_reference_point;
 }
 
