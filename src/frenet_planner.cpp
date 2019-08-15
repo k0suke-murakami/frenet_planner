@@ -79,7 +79,7 @@ void FrenetPlanner::doPlan(const geometry_msgs::PoseStamped& in_current_pose,
   // update kept_trajectory based on current pose
   if(kept_current_trajectory_)
   {
-    // std::cerr << "before crop " << kept_current_trajectory_->trajectory_points.waypoints.size() << std::endl;
+    std::cerr << "before crop " << kept_current_trajectory_->trajectory_points.waypoints.size() << std::endl;
     autoware_msgs::Waypoint current_nearest_trajectory_point;
     getNearestWaypoint(in_current_pose.pose.position,
                       kept_current_trajectory_->trajectory_points.waypoints,
@@ -103,7 +103,7 @@ void FrenetPlanner::doPlan(const geometry_msgs::PoseStamped& in_current_pose,
         break;
       }
     }
-    // std::cerr << "after crop "<< kept_current_trajectory_->trajectory_points.waypoints.size()  << std::endl;
+    std::cerr << "after crop "<< kept_current_trajectory_->trajectory_points.waypoints.size()  << std::endl;
   }
   
   
@@ -163,6 +163,10 @@ void FrenetPlanner::doPlan(const geometry_msgs::PoseStamped& in_current_pose,
   {
     
     std::cerr << "log: update [next] referece point" << std::endl;
+    std::cerr << "next origin s " << kept_current_reference_point_->frenet_point.s_state << std::endl;
+    std::cerr << "next origin d " << kept_current_reference_point_->frenet_point.d_state << std::endl;
+    std::cerr << "next target s " << kept_next_reference_point_->frenet_point.s_state << std::endl;
+    std::cerr << "next target d " << kept_next_reference_point_->frenet_point.d_state << std::endl;
     //validity
     //draw trajectories
     std::vector<Trajectory> trajectories;
@@ -188,6 +192,7 @@ void FrenetPlanner::doPlan(const geometry_msgs::PoseStamped& in_current_pose,
    
   //concate trajectory and make output
   out_trajectory.waypoints = kept_current_trajectory_->trajectory_points.waypoints;
+  std::cerr << "wp size for current trajectory " << kept_current_trajectory_->trajectory_points.waypoints.size()<< std::endl;
   if(!kept_next_trajectory_)
   {
     std::cerr << "next trajectory nullptr "  << std::endl;
@@ -195,7 +200,6 @@ void FrenetPlanner::doPlan(const geometry_msgs::PoseStamped& in_current_pose,
   else
   {
     std::cerr << "next trajectory is not nullptr" << std::endl;
-    std::cerr << "wp size for current trajectory " << kept_current_trajectory_->trajectory_points.waypoints.size()<< std::endl;
     std::cerr << "wp size for next trajectory " << kept_next_trajectory_->trajectory_points.waypoints.size()<< std::endl;
     // make sure concat befor call kept_next_trajectory_.reset()
     out_trajectory.waypoints.insert(out_trajectory.waypoints.end(),
@@ -830,9 +834,10 @@ bool FrenetPlanner::getNewReferencePoint(
     }
     else
     {
+      std::cerr << "trigger stop frenet point here " << std::endl;
       reference_type = ReferenceType::AvoidableStaticObstacle;
       double stop_linear_velocity = 0.0;
-      FrenetPoint target_frenet_point;
+      // FrenetPoint target_frenet_point;
       convertWaypoint2FrenetPoint(
         collision_waypoint.pose.pose.position,
         stop_linear_velocity,
@@ -908,9 +913,6 @@ bool FrenetPlanner::getNewReferencePoint(
     reference_point.reference_type = ReferenceType::Waypoint;
     reference_point.cartesian_point = target_cartesian_point;
   }
-  std::cerr << "reference cartesian point " 
-            << reference_point.cartesian_point.x << " "
-            << reference_point.cartesian_point.y << std::endl;
 }
 
 bool FrenetPlanner::updateReferencePoint(
@@ -1054,14 +1056,21 @@ bool FrenetPlanner::isCollision(const autoware_msgs::Waypoint& waypoint,
 bool FrenetPlanner::isReferencePointValid(
   const geometry_msgs::Pose& ego_pose,
   const geometry_msgs::Point& cartesian_target_point,
-  const geometry_msgs::Point& last_reference_waypoint)
+  const geometry_msgs::Point& last_reference_waypoint,
+  const size_t num_kept_current_trajectory_points)
 {
   double distance = calculate2DDistace(cartesian_target_point,
                                        last_reference_waypoint);
-  // std::cerr << "dist current target and last wp " << distance << std::endl;
+  std::cerr << "dist current target and last wp " << distance << std::endl;
   if(distance<0.1)
   {
     return true;
+  }
+  
+  //TODO: use of parameter/variable
+  if(num_kept_current_trajectory_points <= 1)
+  {
+    return false;
   }
   
   geometry_msgs::Point relative_cartesian_point =  
@@ -1151,6 +1160,7 @@ bool FrenetPlanner::getOriginPointAndTargetPoint(
 {
   //TODO: seek more readable code
   //TODO: think the interface between the components
+  bool is_new_reference_point = false;
   if(current_target_point)
   {
     //calculate origin point
@@ -1172,11 +1182,13 @@ bool FrenetPlanner::getOriginPointAndTargetPoint(
                       target_point))
     {
       current_target_point.reset(new ReferencePoint(target_point));
+      // is_new_reference_point = true;
       return true;
     }
     else
     {
       //false = no need to draw trajectory and get best trajectory
+      // is_new_reference_point= false;
       return false;
     }
   }
@@ -1199,9 +1211,10 @@ bool FrenetPlanner::getOriginPointAndTargetPoint(
                       objects,
                       frenet_target_point);
     current_target_point.reset(new ReferencePoint(frenet_target_point));
-    
+    // is_new_reference_point = true;
     return true;
   }
+  // return is_new_reference_point;
 }
 
 bool FrenetPlanner::getNextTargetPoint(
@@ -1217,8 +1230,10 @@ bool FrenetPlanner::getNextTargetPoint(
 {
   if(!isReferencePointValid(ego_pose,
                            current_target_point->cartesian_point,
-                           reference_waypoints.back().pose.pose.position))
+                           reference_waypoints.back().pose.pose.position,
+                           kept_current_trajectory->trajectory_points.waypoints.size()))
   {
+    std::cerr << "reference point is not valid" << std::endl;
     if(!next_target_point)
     {
       std::cerr << "next_target_point is nullptr" << std::endl;
@@ -1244,6 +1259,11 @@ bool FrenetPlanner::getNextTargetPoint(
       //false = no need to draw trajectory and get best trajectory        
     }
   }
+  else
+  {
+    std::cerr << "reference point is valid" << std::endl;
+  }
+  
   
   double distance = calculate2DDistace(ego_pose.position,
                                        current_target_point->cartesian_point);
