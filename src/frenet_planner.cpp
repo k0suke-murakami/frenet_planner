@@ -798,6 +798,7 @@ bool FrenetPlanner::getNewReferencePoint(
   ReferenceType reference_type = ReferenceType::Unknown;
   FrenetPoint target_frenet_point;
   geometry_msgs::Point target_cartesian_point;
+  //TODO: currently max offset equal 0; need to change when exploring point
   const double lateral_max_offset = 0.0;
   const double lateral_sampling_resolution = 1.0;
   for(double lateral_offset = 0.0;
@@ -823,21 +824,13 @@ bool FrenetPlanner::getNewReferencePoint(
                               collision_waypoint);
     if(is_collison_free)
     {
-      if(lateral_offset < 0.001)
-      {
-        reference_type = ReferenceType::Waypoint;
-      }
-      else
-      {
-        reference_type = ReferenceType::AvoidableStaticObstacle;
-      }
+      reference_type = ReferenceType::Waypoint;
       target_frenet_point = offset_target_frenet_point;
       target_cartesian_point = trajectory.trajectory_points.waypoints.back().pose.pose.position;
-      break;
     }
-    else if(!is_collison_free && lateral_offset >= lateral_max_offset)
+    else
     {
-      
+      reference_type = ReferenceType::AvoidableStaticObstacle;
       double stop_linear_velocity = 0.0;
       FrenetPoint target_frenet_point;
       convertWaypoint2FrenetPoint(
@@ -847,6 +840,32 @@ bool FrenetPlanner::getNewReferencePoint(
         target_frenet_point);
       target_cartesian_point = collision_waypoint.pose.pose.position;
     }
+    // if(is_collison_free)
+    // {
+    //   if(lateral_offset < 0.001)
+    //   {
+    //     reference_type = ReferenceType::Waypoint;
+    //   }
+    //   else
+    //   {
+    //     reference_type = ReferenceType::AvoidableStaticObstacle;
+    //   }
+    //   target_frenet_point = offset_target_frenet_point;
+    //   target_cartesian_point = trajectory.trajectory_points.waypoints.back().pose.pose.position;
+    //   break;
+    // }
+    // else if(!is_collison_free && lateral_offset >= lateral_max_offset)
+    // {
+      
+    //   double stop_linear_velocity = 0.0;
+    //   FrenetPoint target_frenet_point;
+    //   convertWaypoint2FrenetPoint(
+    //     collision_waypoint.pose.pose.position,
+    //     stop_linear_velocity,
+    //     lane_points,
+    //     target_frenet_point);
+    //   target_cartesian_point = collision_waypoint.pose.pose.position;
+    // }
   }
   
   
@@ -866,8 +885,8 @@ bool FrenetPlanner::getNewReferencePoint(
   else if(reference_type == ReferenceType::AvoidableStaticObstacle)
   {
     reference_point.frenet_point = target_frenet_point;
-    reference_point.lateral_offset = 4.0;
-    reference_point.lateral_sampling_resolution = 2.0;
+    reference_point.lateral_offset = 0.0;
+    reference_point.lateral_sampling_resolution = 0.01;
     reference_point.longutudinal_offset = 0.0;
     reference_point.longutudinal_sampling_resolution = 0.01;
     reference_point.time_horizon = 8.0;
@@ -936,17 +955,6 @@ bool FrenetPlanner::updateReferencePoint(
   {
     if(isCollision(current_trajectory_points[i], objects))
     {
-      // int num_waypoints_selecting_back_when_collision = 3;
-      // int reference_wp_index = i - num_waypoints_selecting_back_when_collision;
-      // if(reference_wp_index < 0)
-      // {
-      //   reference_waypoint = current_trajectory_points[0];
-      // }
-      // else
-      // {
-      //   reference_waypoint = current_trajectory_points[reference_wp_index];
-      // }
-      // reference_waypoint.twist.twist.linear.x = 0.0;
       reference_waypoint = current_trajectory_points[i];
       found_new_reference_point = true;
       reference_point.reference_type = ReferenceType::AvoidableStaticObstacle;
