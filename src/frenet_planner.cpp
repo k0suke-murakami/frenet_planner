@@ -633,22 +633,11 @@ bool FrenetPlanner::getBestTrajectory(
       const FrenetPoint& frenet_reference_trajectory_point,
       std::unique_ptr<Trajectory>& kept_best_trajectory)
 {
-  // double min_cost = 99999;
-  double max_ref_waypoints_cost = -1;
-  double sum_ref_waypoints_cost = 0;
-  double max_compare_previous_cost = -1;
-  double sum_compare_previous_cost = 0;
-  double sum_ref_last_waypoint_cost = 0;
-  std::vector<double> ref_waypoints_cost_for_trajectories;
-  std::vector<double> ref_last_waypoint_cost_for_trajectories;
-  std::vector<double> compare_previous_cost_for_trajectories;
-  std::vector<double> collision_cost_for_trajectories;
-  ref_waypoints_cost_for_trajectories.reserve(trajectories.size());
-  compare_previous_cost_for_trajectories.reserve(trajectories.size());
+  std::vector<double> costs;
   for(const auto& trajectory: trajectories)
   {
+    //calculate cost with reference waypoints
     double ref_waypoints_cost = 0;
-    
     for(size_t i = 0; i < reference_waypoints.size(); i++)
     {
       geometry_msgs::Point reference_point = reference_waypoints[i].pose.pose.position;
@@ -657,145 +646,37 @@ bool FrenetPlanner::getBestTrajectory(
       getNearestWaypoint(reference_point, 
                          trajectory.trajectory_points.waypoints,
                          nearest_trajectory_point);
-      //TODO: make method for dist
-      double dx = reference_point.x - nearest_trajectory_point.pose.pose.position.x;
-      double dy = reference_point.y - nearest_trajectory_point.pose.pose.position.y;
-      double dist = std::sqrt(std::pow(dx, 2)+std::pow(dy, 2));
-      
-      // double reference_v = reference_waypoints[i].twist.twist.linear.x;
-      // double calculated_v = nearest_trajectory_point.twist.twist.linear.x;
-      // double delta_v = std::abs(reference_v - calculated_v);
-      // double cost = dist + delta_v;
+      double dist = calculate2DDistace(reference_point, 
+                              nearest_trajectory_point.pose.pose.position);
       ref_waypoints_cost += dist;
       
     }
-    // std::cerr << "before norm ref wps cost " << ref_waypoints_cost << std::endl;
     
-    ref_waypoints_cost_for_trajectories.push_back(ref_waypoints_cost);
-    if (ref_waypoints_cost > max_ref_waypoints_cost)
-    {
-      max_ref_waypoints_cost = ref_waypoints_cost;
-    }
-    sum_ref_waypoints_cost += ref_waypoints_cost;
-    
-    
+    //calculate terminal cost
     FrenetPoint frenet_point_at_time_horizon = trajectory.frenet_trajectory_points.back();
     double ref_last_waypoint_cost = std::pow(frenet_point_at_time_horizon.d_state(0) - frenet_reference_trajectory_point.d_state(0), 2) + 
                                 std::pow(frenet_point_at_time_horizon.s_state(0) - frenet_reference_trajectory_point.s_state(0), 2) +
                                 std::pow(frenet_point_at_time_horizon.s_state(1) - frenet_reference_trajectory_point.s_state(1), 2);
-    ref_last_waypoint_cost_for_trajectories.push_back(ref_last_waypoint_cost);
-    // std::cerr << "before norm ref last wp cost " << ref_last_waypoint_cost << std::endl;
-    sum_ref_last_waypoint_cost += ref_last_waypoint_cost;              
+    double sum_cost = ref_waypoints_cost + ref_last_waypoint_cost;
+    costs.push_back(sum_cost);
     
-    // if(kept_best_trajectory)
-    // {
-    //   std::cerr << "num kept frenet point " << kept_best_trajectory->frenet_trajectory_points.size() << std::endl;
-    //   std::cerr << "num traj frenet point " << trajectory.frenet_trajectory_points.size() << std::endl;
-    //   double compare_previous_cost = 0;
-    //   if(kept_best_trajectory->frenet_trajectory_points.size() > trajectory.frenet_trajectory_points.size())
-    //   {
-    //     std::cerr << "error: need to change loop number; possibly code desigh as well"  << std::endl;
-    //   }
-    //   for(size_t i = 0; i < kept_best_trajectory->frenet_trajectory_points.size(); i++)
-    //   {
-    //     FrenetPoint kept_frenet_point = kept_best_trajectory->frenet_trajectory_points[i];
-    //     FrenetPoint compare_frenet_point = trajectory.frenet_trajectory_points[i];
-        
-    //     double delta_d_p = kept_frenet_point.d_state(0) - compare_frenet_point.d_state(0);
-    //     double delta_s_p = kept_frenet_point.s_state(0) - compare_frenet_point.s_state(0);
-    //     compare_previous_cost += (std::pow(delta_d_p,2) + std::pow(delta_s_p,2));
-    //   }
-    //   compare_previous_cost_for_trajectories.push_back(compare_previous_cost);
-    //   if(compare_previous_cost > max_compare_previous_cost)
-    //   {
-    //     max_compare_previous_cost = compare_previous_cost;
-    //   }
-    //   sum_compare_previous_cost += compare_previous_cost;
-    // }
-    // else
-    // {
-    //   std::cerr << "kept traj is nullptr; skip evaluatin similarity cost"  << std::endl;
-    // }
-    
-    
-    //collision check
-    double collision_cost = 0;
-    for(const auto& point: trajectory.trajectory_points.waypoints)
-    {
-      //assume there is only one object
-      if(objects.objects.size() == 0)
-      {
-        std::cerr << "Size of objects is 0" << std::endl;
-        break;
-      }
-      geometry_msgs::Point obstacle_position = objects.objects.front().pose.position;
-      
-      geometry_msgs::Point ego_position = point.pose.pose.position;
-      double dx = ego_position.x - obstacle_position.x;
-      double dy = ego_position.y - obstacle_position.y;
-      double distance = std::sqrt(std::pow(dx, 2) + std::pow(dy,2));
-      double radius =3;
-      if(distance < radius)
-      {
-        collision_cost = 9999;
-        break;
-      }
-    }
-    collision_cost_for_trajectories.push_back(collision_cost);
   }
+  //arg sort 
+  // https://stackoverflow.com/questions/1577475/c-sorting-and-keeping-track-of-indexes/12399290#12399290
+  std::vector<size_t> indexes(trajectories.size());
+  std::iota(indexes.begin(), indexes.end(), 0);
+  std::sort(indexes.begin(), indexes.end(), [&costs](const size_t &a, const size_t &b)
+                                               { return costs[a] < costs[b];});
   
-  
-  double min_cost = 9999999;
-  size_t debug_traj_ind = 0;
-  Trajectory lowest_cost_trajectory;
-  for(size_t i = 0; i < trajectories.size(); i++)
+  for(const auto& index: indexes)
   {
-    // double normalized_ref_waypoints_cost = ref_waypoints_cost_for_trajectories[i]/max_ref_waypoints_cost;
-    // double normalized_comapre_previous_cost = compare_previous_cost_for_trajectories[i]/max_compare_previous_cost;
-    double normalized_ref_waypoints_cost = ref_waypoints_cost_for_trajectories[i]/sum_ref_waypoints_cost;
-    double normalized_ref_last_waypoint_cost = ref_last_waypoint_cost_for_trajectories[i]/sum_ref_last_waypoint_cost;
-    // double normalized_compare_previous_cost = 0;
-    // if(kept_best_trajectory)
-    // {
-    //   // std::cerr << "there is kept trajectory" << std::endl;
-    //   normalized_compare_previous_cost = compare_previous_cost_for_trajectories[i]/sum_compare_previous_cost;
-    // }
-    normalized_ref_waypoints_cost*=0.5;
-    normalized_ref_last_waypoint_cost*=0.5;
-    // normalized_compare_previous_cost *= 0.5;
-    
-    double collision_cost = collision_cost_for_trajectories[i];
-    double temp_sum_cost = normalized_ref_waypoints_cost + 
-                           normalized_ref_last_waypoint_cost +
-                           collision_cost;
-    std::cerr << "ith "<< i <<
-    " ref wps "<< normalized_ref_waypoints_cost<<
-    " ref last "<< normalized_ref_last_waypoint_cost<<
-    " tsum " << temp_sum_cost << std::endl;
-    // double temp_sum_cost = normalized_ref_waypoints_cost + 
-    //                        normalized_ref_last_waypoint_cost +
-    //                        normalized_compare_previous_cost +
-    //                        collision_cost;
-    // std::cerr << "ith "<< i <<
-    // " ref wps "<< normalized_ref_waypoints_cost<<
-    // " ref last "<< normalized_ref_last_waypoint_cost<<
-    // " prev "<< normalized_compare_previous_cost<<
-    // " tsum " << temp_sum_cost << std::endl;
-    if(temp_sum_cost < min_cost)
+    if(isTrajectoryCollisionFree(
+      trajectories[index].trajectory_points.waypoints,
+      objects))
     {
-      min_cost = temp_sum_cost;
-      lowest_cost_trajectory = trajectories[i];
-      // std::cerr << "input traj poiint " << trajectories[i].trajectory_points.waypoints.size() << std::endl;
-      // std::cerr << "output traj poiint " << best_trajectory.waypoints.size() << std::endl;
-      // std::cerr << "save ith trajectory " << i << std::endl;
-      // best_trajectory = trajectories[i].trajectory_points;
-      // kept_best_trajectory.reset(new Trajectory(trajectories[i]));
-      // std::cerr << "output ptr " << kept_best_trajectory->trajectory_points.waypoints.size() << std::endl;
-      debug_traj_ind = i;
+      kept_best_trajectory.reset(new Trajectory(trajectories[index]));
     }
-  }
-  
-  kept_best_trajectory.reset(new Trajectory(lowest_cost_trajectory));  
+  } 
 }
 
 
@@ -1402,6 +1283,7 @@ bool FrenetPlanner::getNextTargetPoint(
   }
 }
 
+//TODO: not good interface; has 2 meanings check if safe, get collision waypoint
 bool FrenetPlanner::isTrajectoryCollisionFree(
     const std::vector<autoware_msgs::Waypoint>& trajectory_points,
     const autoware_msgs::DetectedObjectArray& objects,
@@ -1413,6 +1295,22 @@ bool FrenetPlanner::isTrajectoryCollisionFree(
     if(is_collision)
     {
       collision_waypoint = point;
+      return false;
+    }
+  }
+  return true;
+}
+
+//not sure this overload is good or bad
+bool FrenetPlanner::isTrajectoryCollisionFree(
+    const std::vector<autoware_msgs::Waypoint>& trajectory_points,
+    const autoware_msgs::DetectedObjectArray& objects)
+{
+  for(const auto& point: trajectory_points)
+  {
+    bool is_collision = isCollision(point, objects);
+    if(is_collision)
+    {
       return false;
     }
   }
