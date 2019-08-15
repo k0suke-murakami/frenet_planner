@@ -79,7 +79,7 @@ void FrenetPlanner::doPlan(const geometry_msgs::PoseStamped& in_current_pose,
   // update kept_trajectory based on current pose
   if(kept_current_trajectory_)
   {
-    std::cerr << "before crop " << kept_current_trajectory_->trajectory_points.waypoints.size() << std::endl;
+    // std::cerr << "before crop " << kept_current_trajectory_->trajectory_points.waypoints.size() << std::endl;
     autoware_msgs::Waypoint current_nearest_trajectory_point;
     getNearestWaypoint(in_current_pose.pose.position,
                       kept_current_trajectory_->trajectory_points.waypoints,
@@ -103,7 +103,7 @@ void FrenetPlanner::doPlan(const geometry_msgs::PoseStamped& in_current_pose,
         break;
       }
     }
-    std::cerr << "after crop "<< kept_current_trajectory_->trajectory_points.waypoints.size()  << std::endl;
+    // std::cerr << "after crop "<< kept_current_trajectory_->trajectory_points.waypoints.size()  << std::endl;
   }
   
   
@@ -163,10 +163,10 @@ void FrenetPlanner::doPlan(const geometry_msgs::PoseStamped& in_current_pose,
   {
     
     std::cerr << "log: update [next] referece point" << std::endl;
-    std::cerr << "next origin s " << kept_current_reference_point_->frenet_point.s_state << std::endl;
-    std::cerr << "next origin d " << kept_current_reference_point_->frenet_point.d_state << std::endl;
-    std::cerr << "next target s " << kept_next_reference_point_->frenet_point.s_state << std::endl;
-    std::cerr << "next target d " << kept_next_reference_point_->frenet_point.d_state << std::endl;
+    // std::cerr << "next origin s " << kept_current_reference_point_->frenet_point.s_state << std::endl;
+    // std::cerr << "next origin d " << kept_current_reference_point_->frenet_point.d_state << std::endl;
+    // std::cerr << "next target s " << kept_next_reference_point_->frenet_point.s_state << std::endl;
+    // std::cerr << "next target d " << kept_next_reference_point_->frenet_point.d_state << std::endl;
     //validity
     //draw trajectories
     std::vector<Trajectory> trajectories;
@@ -192,7 +192,7 @@ void FrenetPlanner::doPlan(const geometry_msgs::PoseStamped& in_current_pose,
    
   //concate trajectory and make output
   out_trajectory.waypoints = kept_current_trajectory_->trajectory_points.waypoints;
-  std::cerr << "wp size for current trajectory " << kept_current_trajectory_->trajectory_points.waypoints.size()<< std::endl;
+  // std::cerr << "wp size for current trajectory " << kept_current_trajectory_->trajectory_points.waypoints.size()<< std::endl;
   if(!kept_next_trajectory_)
   {
     std::cerr << "next trajectory nullptr "  << std::endl;
@@ -200,7 +200,7 @@ void FrenetPlanner::doPlan(const geometry_msgs::PoseStamped& in_current_pose,
   else
   {
     std::cerr << "next trajectory is not nullptr" << std::endl;
-    std::cerr << "wp size for next trajectory " << kept_next_trajectory_->trajectory_points.waypoints.size()<< std::endl;
+    // std::cerr << "wp size for next trajectory " << kept_next_trajectory_->trajectory_points.waypoints.size()<< std::endl;
     // make sure concat befor call kept_next_trajectory_.reset()
     out_trajectory.waypoints.insert(out_trajectory.waypoints.end(),
                                     kept_next_trajectory_->trajectory_points.waypoints.begin(),
@@ -1061,7 +1061,7 @@ bool FrenetPlanner::isReferencePointValid(
 {
   double distance = calculate2DDistace(cartesian_target_point,
                                        last_reference_waypoint);
-  std::cerr << "dist current target and last wp " << distance << std::endl;
+  // std::cerr << "dist current target and last wp " << distance << std::endl;
   if(distance<0.1)
   {
     return true;
@@ -1182,14 +1182,7 @@ bool FrenetPlanner::getOriginPointAndTargetPoint(
                       target_point))
     {
       current_target_point.reset(new ReferencePoint(target_point));
-      // is_new_reference_point = true;
-      return true;
-    }
-    else
-    {
-      //false = no need to draw trajectory and get best trajectory
-      // is_new_reference_point= false;
-      return false;
+      is_new_reference_point = true;
     }
   }
   else
@@ -1211,10 +1204,9 @@ bool FrenetPlanner::getOriginPointAndTargetPoint(
                       objects,
                       frenet_target_point);
     current_target_point.reset(new ReferencePoint(frenet_target_point));
-    // is_new_reference_point = true;
-    return true;
+    is_new_reference_point = true;
   }
-  // return is_new_reference_point;
+  return is_new_reference_point;
 }
 
 bool FrenetPlanner::getNextTargetPoint(
