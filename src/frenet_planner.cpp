@@ -882,25 +882,12 @@ bool FrenetPlanner::getNewReferencePoint(
     }
   }
   
-  //convert cartesian waypoint to frenet 
-  double frenet_s_position;
-  double frenet_d_position;
-  convertCartesianPosition2FrenetPosition(
-    default_target_waypoint.pose.pose.position, 
-    lane_points,        
-    frenet_s_position,
-    frenet_d_position);
-  Eigen::Vector3d frenet_s;
-  Eigen::Vector3d frenet_d;
-  frenet_s << frenet_s_position,
-              default_target_waypoint.twist.twist.linear.x,
-              0;
-  frenet_d << frenet_d_position,
-              0,
-              0;
   FrenetPoint default_target_frenet_point;
-  default_target_frenet_point.d_state = frenet_d;
-  default_target_frenet_point.s_state = frenet_s;
+  convertWaypoint2FrenetPoint(
+    default_target_waypoint.pose.pose.position,
+    default_target_waypoint.twist.twist.linear.x,
+    lane_points,
+    default_target_frenet_point);
   
   //TODO: change the behavior here based on current_reference_point's reference type
   
@@ -948,25 +935,14 @@ bool FrenetPlanner::getNewReferencePoint(
     }
     else if(!is_collison_free && lateral_offset >= lateral_max_offset)
     {
-      //TODO: make method input wp point, wp linear velo, lane_points output: FrenetPoint
-      double frenet_s_position;
-      double frenet_d_position;
-      convertCartesianPosition2FrenetPosition(
-        collision_waypoint.pose.pose.position, 
-        lane_points,        
-        frenet_s_position,
-        frenet_d_position);
-      Eigen::Vector3d frenet_s;
-      Eigen::Vector3d frenet_d;
-      frenet_s << frenet_s_position,
-                  0,
-                  0;
-      frenet_d << frenet_d_position,
-                  0,
-                  0;
+      
+      double stop_linear_velocity = 0.0;
       FrenetPoint target_frenet_point;
-      target_frenet_point.d_state = frenet_d;
-      target_frenet_point.s_state = frenet_s;
+      convertWaypoint2FrenetPoint(
+        collision_waypoint.pose.pose.position,
+        stop_linear_velocity,
+        lane_points,
+        target_frenet_point);
       target_cartesian_point = collision_waypoint.pose.pose.position;
     }
   }
@@ -1093,20 +1069,14 @@ bool FrenetPlanner::updateReferencePoint(
     return found_new_reference_point;
   }
   
-  double frenet_s_position, frenet_d_position;
-  convertCartesianPosition2FrenetPosition(reference_waypoint.pose.pose.position,
-                                          lane_points,
-                                          frenet_s_position,
-                                          frenet_d_position);
-  Eigen::Vector3d frenet_s, frenet_d;
-  frenet_s << frenet_s_position,
-              reference_waypoint.twist.twist.linear.x,
-              0;             
-  frenet_d << frenet_d_position,
-              0,
-              0;
-  reference_point.frenet_point.s_state = frenet_s;
-  reference_point.frenet_point.d_state = frenet_d;
+  FrenetPoint reference_frenet_point;
+  convertWaypoint2FrenetPoint(
+    reference_waypoint.pose.pose.position,
+    reference_waypoint.twist.twist.linear.x,
+    lane_points,
+    reference_frenet_point);
+  
+  reference_point.frenet_point = reference_frenet_point;
   
   if(reference_waypoint.twist.twist.linear.x < 0.1)
   {
@@ -1299,24 +1269,12 @@ bool FrenetPlanner::getOriginPointAndTargetPoint(
   }
   else
   {
-    //calculate origin_point
-    double frenet_s_position, frenet_d_position;
-    convertCartesianPosition2FrenetPosition(
-      ego_pose.position,
-      lane_points,        
-      frenet_s_position,
-      frenet_d_position);
-    Eigen::Vector3d frenet_s, frenet_d;
-    frenet_s << frenet_s_position,
-                ego_linear_velocity,
-                0;
-    frenet_d << frenet_d_position,
-                0,
-                0;
-                
     FrenetPoint frenet_point;
-    frenet_point.s_state = frenet_s;
-    frenet_point.d_state = frenet_d;
+    convertWaypoint2FrenetPoint(
+      ego_pose.position,
+      ego_linear_velocity,
+      lane_points,
+      frenet_point);
     origin_frenet_point = frenet_point;
     
     ReferencePoint frenet_target_point;
@@ -1446,4 +1404,29 @@ bool FrenetPlanner::isTrajectoryCollisionFree(
     }
   }
   return true;
+}
+
+bool FrenetPlanner::convertWaypoint2FrenetPoint(
+        const geometry_msgs::Point& cartesian_point,
+        const double linear_velocity,
+        const std::vector<Point> lane_points,        
+        FrenetPoint& frenet_point)
+{
+  //calculate origin_point
+  double frenet_s_position, frenet_d_position;
+  convertCartesianPosition2FrenetPosition(
+    cartesian_point,
+    lane_points,        
+    frenet_s_position,
+    frenet_d_position);
+  Eigen::Vector3d frenet_s, frenet_d;
+  frenet_s << frenet_s_position,
+              linear_velocity,
+              0;
+  frenet_d << frenet_d_position,
+              0,
+              0;
+             
+  frenet_point.s_state = frenet_s;
+  frenet_point.d_state = frenet_d;
 }

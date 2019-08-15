@@ -161,6 +161,12 @@ private:
         const std::vector<Point> lane_points,        
         double& frenet_s_position,
         double& frenet_d_position);
+        
+  bool convertWaypoint2FrenetPoint(
+        const geometry_msgs::Point& cartesian_point,
+        const double linear_velocity,
+        const std::vector<Point> lane_points,        
+        FrenetPoint& frenet_point);
   
     
   bool getBestTrajectory(
