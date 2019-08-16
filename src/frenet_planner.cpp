@@ -597,7 +597,10 @@ bool FrenetPlanner::getBestTrajectory(
       std::unique_ptr<ReferencePoint>& kept_reference_point,
       std::unique_ptr<Trajectory>& kept_best_trajectory)
 {
-  std::vector<double> costs;
+  std::vector<double> ref_waypoints_costs;
+  double sum_ref_waypoints_costs;
+  std::vector<double> ref_last_waypoints_costs;
+  double sum_last_waypoints_costs;
   for(const auto& trajectory: trajectories)
   {
     //calculate cost with reference waypoints
@@ -613,8 +616,9 @@ bool FrenetPlanner::getBestTrajectory(
       double dist = calculate2DDistace(reference_point, 
                               nearest_trajectory_point.pose.pose.position);
       ref_waypoints_cost += dist;
-      
     }
+    ref_waypoints_costs.push_back(ref_waypoints_cost);
+    sum_ref_waypoints_costs += ref_waypoints_cost;
     
     //calculate terminal cost
     FrenetPoint frenet_point_at_time_horizon = trajectory.frenet_trajectory_points.back();
@@ -622,9 +626,20 @@ bool FrenetPlanner::getBestTrajectory(
     std::pow(frenet_point_at_time_horizon.d_state(0) - kept_reference_point->frenet_point.d_state(0), 2) + 
     std::pow(frenet_point_at_time_horizon.s_state(0) - kept_reference_point->frenet_point.s_state(0), 2) +
     std::pow(frenet_point_at_time_horizon.s_state(1) - kept_reference_point->frenet_point.s_state(1), 2);
-    double sum_cost = ref_waypoints_cost + ref_last_waypoint_cost;
+    ref_last_waypoints_costs.push_back(ref_last_waypoint_cost);
+    sum_last_waypoints_costs+= ref_last_waypoint_cost;
+  }
+  
+  std::vector<double> costs;
+  for(size_t i = 0; i < ref_last_waypoints_costs.size(); i++)
+  {
+    double normalized_ref_waypoints_cost = ref_waypoints_costs[i]/sum_ref_waypoints_costs;
+    double normalized_ref_last_waypoints_cost = ref_last_waypoints_costs[i]/sum_last_waypoints_costs;
+    double sum_cost = normalized_ref_waypoints_cost + normalized_ref_last_waypoints_cost;
     costs.push_back(sum_cost);
-    
+    std::cerr << "norm_ref_wps " << normalized_ref_waypoints_cost
+              << "norm ref last "<< normalized_ref_last_waypoints_cost
+              << "sum "<< sum_cost<< std::endl;
   }
   //arg sort 
   // https://stackoverflow.com/questions/1577475/c-sorting-and-keeping-track-of-indexes/12399290#12399290
@@ -636,12 +651,14 @@ bool FrenetPlanner::getBestTrajectory(
   bool has_got_best_trajectory = false;
   for(const auto& index: indexes)
   {
+    std::cerr << "traj index from min cost " << index << std::endl;
     if(isTrajectoryCollisionFree(
       trajectories[index].trajectory_points.waypoints,
       objects))
     {
       has_got_best_trajectory = true;
       kept_best_trajectory.reset(new Trajectory(trajectories[index]));
+      break;
     }
   } 
   
@@ -818,7 +835,7 @@ bool FrenetPlanner::getNewReferencePoint(
         lateral_offset <= lateral_max_offset;
         lateral_offset+=lateral_sampling_resolution)
     {
-      double time_horizon = 8.0;
+      double time_horizon = 12.0;
       FrenetPoint offset_reference_frenet_point;
       offset_reference_frenet_point = default_reference_frenet_point;
       offset_reference_frenet_point.d_state(0) += lateral_offset;
@@ -866,8 +883,8 @@ bool FrenetPlanner::getNewReferencePoint(
     reference_point.lateral_sampling_resolution =0.01;
     reference_point.longutudinal_offset = 0.0;
     reference_point.longutudinal_sampling_resolution = 0.01;
-    reference_point.time_horizon = 8.0;
-    reference_point.time_horizon_offset = 6.0;
+    reference_point.time_horizon = 12.0;
+    reference_point.time_horizon_offset = 4.0;
     reference_point.time_horizon_sampling_resolution = 2.0;
     reference_point.reference_type = reference_type;
   }
@@ -879,8 +896,8 @@ bool FrenetPlanner::getNewReferencePoint(
     reference_point.lateral_sampling_resolution = 0.01;
     reference_point.longutudinal_offset = 0.0;
     reference_point.longutudinal_sampling_resolution = 0.01;
-    reference_point.time_horizon = 8.0;
-    reference_point.time_horizon_offset = 6.0;
+    reference_point.time_horizon = 12.0;
+    reference_point.time_horizon_offset = 4.0;
     reference_point.time_horizon_sampling_resolution = 2.0;
     reference_point.reference_type = reference_type;
   }
@@ -894,7 +911,7 @@ bool FrenetPlanner::getNewReferencePoint(
     reference_point.longutudinal_offset = 0.0;
     reference_point.longutudinal_sampling_resolution = 0.01;
     reference_point.time_horizon = 12.0;
-    reference_point.time_horizon_offset = 8.0;
+    reference_point.time_horizon_offset = 4.0;
     reference_point.time_horizon_sampling_resolution = 1.0;
     reference_point.reference_type = reference_type;
   }
@@ -907,8 +924,8 @@ bool FrenetPlanner::getNewReferencePoint(
     reference_point.lateral_sampling_resolution = 0.01;
     reference_point.longutudinal_offset = 0.0;
     reference_point.longutudinal_sampling_resolution = 0.01;
-    reference_point.time_horizon = 8.0;
-    reference_point.time_horizon_offset = 6.0;
+    reference_point.time_horizon = 12.0;
+    reference_point.time_horizon_offset = 4.0;
     reference_point.time_horizon_sampling_resolution = 2.0;
     reference_point.reference_type = ReferenceType::Unknown;
   }
@@ -959,7 +976,7 @@ bool FrenetPlanner::getInitialReferencePoint(
   reference_point.lateral_sampling_resolution =0.01;
   reference_point.longutudinal_offset = 0.0;
   reference_point.longutudinal_sampling_resolution = 0.01;
-  reference_point.time_horizon = 8.0;
+  reference_point.time_horizon = 16.0;
   reference_point.time_horizon_offset = 6.0;
   reference_point.time_horizon_sampling_resolution = 2.0;
   reference_point.reference_type = ReferenceType::Waypoint;
@@ -1051,8 +1068,8 @@ bool FrenetPlanner::updateReferencePoint(
     reference_point.lateral_sampling_resolution = 0.01;
     reference_point.longutudinal_offset = 0.0;
     reference_point.longutudinal_sampling_resolution = 0.01;
-    reference_point.time_horizon = 8.0;
-    reference_point.time_horizon_offset = 6.0;
+    reference_point.time_horizon = 12.0;
+    reference_point.time_horizon_offset = 4.0;
     reference_point.time_horizon_sampling_resolution = 2.0;
   }
   else
@@ -1061,7 +1078,7 @@ bool FrenetPlanner::updateReferencePoint(
     reference_point.lateral_sampling_resolution = 2.0;
     reference_point.longutudinal_offset = 0.0;
     reference_point.longutudinal_sampling_resolution = 0.01;
-    reference_point.time_horizon = 8.0;
+    reference_point.time_horizon = 16.0;
     reference_point.time_horizon_offset = 6.0;
     reference_point.time_horizon_sampling_resolution = 2.0;
     
@@ -1172,7 +1189,7 @@ bool FrenetPlanner::drawTrajectories(
         longitudinal_offset<= reference_point.longutudinal_offset;
         longitudinal_offset+= reference_point.longutudinal_sampling_resolution)
     {
-      for(double time_horizon_offset = -1*reference_point.longutudinal_offset;
+      for(double time_horizon_offset = -1*reference_point.time_horizon_offset;
           time_horizon_offset<=reference_point.time_horizon_offset;
           time_horizon_offset+=reference_point.time_horizon_sampling_resolution)
       {
@@ -1184,6 +1201,7 @@ bool FrenetPlanner::drawTrajectories(
         frenet_target_point.d_state = target_d;
         frenet_target_point.s_state = target_s;
         double target_time_horizon = reference_point.time_horizon + time_horizon_offset;
+        std::cerr << "reference time horizon " << target_time_horizon << std::endl;
         Trajectory trajectory;
         getTrajectory(
             lane_points,
