@@ -352,6 +352,7 @@ void FrenetPlannerROS::timerCallback(const ros::TimerEvent &e)
     }
     
     //text
+    size_t debug_wp_id = 0;
     for (const auto& waypoint: out_trajectory.waypoints)
     {
       visualization_msgs::Marker trajectory_points_text;
@@ -365,8 +366,8 @@ void FrenetPlannerROS::timerCallback(const ros::TimerEvent &e)
       trajectory_points_text.scale.y = 0.1;
       trajectory_points_text.scale.z = 0.4;
 
-      // texts are blue
-      trajectory_points_text.color.b = 1.0f;
+      // texts are green
+      trajectory_points_text.color.g = 1.0f;
       trajectory_points_text.color.a = 1.0;
       
       double velocity_in_kmh = (waypoint.twist.twist.linear.x*60*60)/(1000);
@@ -383,15 +384,18 @@ void FrenetPlannerROS::timerCallback(const ros::TimerEvent &e)
       geometry_msgs::Point tf_point_msg;
       pointTFToMsg(tf_p, tf_point_msg);
       trajectory_points_text.pose.position = tf_point_msg;
-      // trajectory_points_text.text = 
-      //   std::to_string(waypoint.twist.twist.linear.x).substr(0,4);
-      trajectory_points_text.text = 
+      trajectory_points_text.text += std::to_string(debug_wp_id);
+      trajectory_points_text.text += std::string(": ");
+      
+      trajectory_points_text.text += 
         std::to_string(velocity_in_kmh).substr(0,4);
       
       // trajectory_points_text.pose.orientation = waypoint.pose.pose.orientation;
       unique_id++;
       
       points_marker_array.markers.push_back(trajectory_points_text);
+      
+      debug_wp_id++;
     }
     
     int trajectory_count = 0;
