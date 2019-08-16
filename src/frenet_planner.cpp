@@ -651,7 +651,7 @@ bool FrenetPlanner::getBestTrajectory(
   bool has_got_best_trajectory = false;
   for(const auto& index: indexes)
   {
-    std::cerr << "traj index from min cost " << index << std::endl;
+    // std::cerr << "traj index from min cost " << index << std::endl;
     if(isTrajectoryCollisionFree(
       trajectories[index].trajectory_points.waypoints,
       objects))
@@ -910,7 +910,7 @@ bool FrenetPlanner::getNewReferencePoint(
     reference_point.lateral_sampling_resolution = 0.5;
     reference_point.longutudinal_offset = 0.0;
     reference_point.longutudinal_sampling_resolution = 0.01;
-    reference_point.time_horizon = 12.0;
+    reference_point.time_horizon = 10.0;
     reference_point.time_horizon_offset = 4.0;
     reference_point.time_horizon_sampling_resolution = 1.0;
     reference_point.reference_type = reference_type;
@@ -1179,6 +1179,7 @@ bool FrenetPlanner::drawTrajectories(
   std::cerr << "lateral samp " << reference_point.lateral_sampling_resolution << std::endl;
   std::cerr << "long offset " << reference_point.longutudinal_offset << std::endl;
   std::cerr << "long samp "   << reference_point.longutudinal_sampling_resolution<< std::endl;
+  std::cerr << "th default " << reference_point.time_horizon << std::endl;
   std::cerr << "th offset " << reference_point.time_horizon_offset << std::endl;
   std::cerr << "th samp "   << reference_point.time_horizon_sampling_resolution<< std::endl;
   for(double lateral_offset = -1*reference_point.lateral_offset; 
@@ -1201,7 +1202,7 @@ bool FrenetPlanner::drawTrajectories(
         frenet_target_point.d_state = target_d;
         frenet_target_point.s_state = target_s;
         double target_time_horizon = reference_point.time_horizon + time_horizon_offset;
-        std::cerr << "reference time horizon " << target_time_horizon << std::endl;
+        // std::cerr << "reference time horizon " << target_time_horizon << std::endl;
         Trajectory trajectory;
         getTrajectory(
             lane_points,
