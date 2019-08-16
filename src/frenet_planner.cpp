@@ -859,6 +859,59 @@ bool FrenetPlanner::getNewReferencePoint(
   }
 }
 
+//TODO: not considering the size of waypoints
+bool FrenetPlanner::getInitialReferencePoint(
+  const geometry_msgs::Point& origin_cartesian_point,
+  const double origin_linear_velocity,  
+  const std::vector<autoware_msgs::Waypoint>& reference_waypoints,
+  const std::vector<Point>& lane_points,
+  ReferencePoint& reference_point)
+{
+  std::cerr << "calling getInitialReferencePoint" << std::endl;
+  //change look ahead distance based on current velocity
+  const double lookahead_distance_ratio = 4.0;
+  double lookahead_distance = fabs(origin_linear_velocity) * lookahead_distance_ratio;
+  const double minimum_lookahed_distance = 12.0;
+  if(lookahead_distance < minimum_lookahed_distance)
+  {
+    lookahead_distance = minimum_lookahed_distance;
+  }
+  
+  double max_distance = -9999;
+  autoware_msgs::Waypoint default_reference_waypoint;
+  for(const auto& waypoint: reference_waypoints)
+  {
+    double dx = waypoint.pose.pose.position.x - origin_cartesian_point.x;
+    double dy = waypoint.pose.pose.position.y - origin_cartesian_point.y;
+    double distance = std::sqrt(std::pow(dx, 2)+std::pow(dy,2));
+    // if(distance < search_radius_for_target_point_ && distance > max_distance)
+    if(distance < lookahead_distance && distance > max_distance)
+    {
+      max_distance = distance;
+      default_reference_waypoint = waypoint;
+    }
+  }
+  
+  FrenetPoint default_reference_frenet_point;
+  convertWaypoint2FrenetPoint(
+    default_reference_waypoint.pose.pose.position,
+    default_reference_waypoint.twist.twist.linear.x,
+    lane_points,
+    default_reference_frenet_point);
+  
+  reference_point.frenet_point = default_reference_frenet_point;
+  reference_point.lateral_offset = 0.0;
+  reference_point.lateral_sampling_resolution =0.01;
+  reference_point.longutudinal_offset = 0.0;
+  reference_point.longutudinal_sampling_resolution = 0.01;
+  reference_point.time_horizon = 8.0;
+  reference_point.time_horizon_offset = 6.0;
+  reference_point.time_horizon_sampling_resolution = 2.0;
+  reference_point.reference_type = ReferenceType::Waypoint;
+  reference_point.cartesian_point = default_reference_waypoint.pose.pose.position;
+  return true;
+}
+
 bool FrenetPlanner::updateReferencePoint(
     const std::unique_ptr<Trajectory>& kept_trajectory,
     const std::vector<autoware_msgs::Waypoint>& local_reference_waypoints,
@@ -1133,7 +1186,7 @@ bool FrenetPlanner::getOriginPointAndReferencePoint(
     }
   }
   else
-  {
+  {//initialize when current_reference_point is nullptr
     FrenetPoint frenet_point;
     convertWaypoint2FrenetPoint(
       ego_pose.position,
@@ -1143,12 +1196,10 @@ bool FrenetPlanner::getOriginPointAndReferencePoint(
     origin_frenet_point = frenet_point;
     
     ReferencePoint frenet_target_point;
-    getNewReferencePoint(ego_pose.position,
-                      origin_frenet_point,
+    getInitialReferencePoint(ego_pose.position,
                       ego_linear_velocity,
                       reference_waypoints,
                       lane_points,
-                      objects,
                       frenet_target_point);
     current_reference_point.reset(new ReferencePoint(frenet_target_point));
     is_new_reference_point = true;

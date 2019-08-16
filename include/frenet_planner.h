@@ -193,8 +193,14 @@ private:
        const std::vector<autoware_msgs::Waypoint>& waypoints,
        const std::vector<Point>& lane_points,
        const autoware_msgs::DetectedObjectArray& objects,
-       ReferencePoint& reference_point
-  );
+       ReferencePoint& reference_point);
+  
+  bool getInitialReferencePoint(
+      const geometry_msgs::Point& origin_cartesian_point,
+      const double origin_linear_velocity,  
+      const std::vector<autoware_msgs::Waypoint>& reference_waypoints,
+      const std::vector<Point>& lane_points,
+      ReferencePoint& reference_point);
   
   
   // pick up new reference point from kept_trajectory/lane points
