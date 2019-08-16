@@ -653,7 +653,7 @@ bool FrenetPlanner::getBestTrajectory(
   //TODO: this might be bad effect
   if(!has_got_best_trajectory)
   {
-    std::cerr << "calling null update!!!!"  << std::endl;
+    std::cerr << "ATTENTION: calling null update!!!! getBestTrajectory"  << std::endl;
     kept_reference_point = nullptr;
     kept_best_trajectory = nullptr;
   }
@@ -799,7 +799,7 @@ bool FrenetPlanner::getNewReferencePoint(
     }
     else
     {
-      std::cerr << "trigger stop frenet point here " << std::endl;
+      std::cerr << "Put stop at origin point; inside getNewReferencePoint " << std::endl;
       reference_type = ReferenceType::AvoidableStaticObstacle;
       double stop_linear_velocity = 0.0;
       // FrenetPoint target_frenet_point;
@@ -1445,67 +1445,130 @@ bool FrenetPlanner::getNextTargetPoint(
   std::cerr << "sssss"  << std::endl;
   next_origin_point = kept_current_trajectory->frenet_trajectory_points.back();
   
-  double distance_from_last_wp_to_next_reference_point = calculate2DDistace(
-    kept_current_trajectory->trajectory_points.waypoints.back().pose.pose.position,
-    next_target_point->cartesian_point);
-  //TODO: calculate this value by constrained optimization
-  const double minimum_distance_to_converge = 6;
-  if(distance_from_last_wp_to_next_reference_point < minimum_distance_to_converge)
+  
+  //offset only for stop waypoint
+  //validity check if new_reference_point is too close to converge to 0
+  if(next_target_point->frenet_point.s_state(1) < 0.01)
   {
-    std::cerr << "offseeeeeeeeeeeeeeeeeeeeeeet"  << std::endl;
-    double min_dist = 99999;
-    size_t offset_index = 0;
-    bool is_offset = false;
-    const std::vector<autoware_msgs::Waypoint> waypoints = 
-    kept_current_trajectory->trajectory_points.waypoints;
-    std::cerr << "num wps " << waypoints.size() << std::endl;
-    for(size_t i = 0; i < waypoints.size(); i++)
+    Trajectory trajectory;
+    getTrajectory(lane_points,
+                  reference_waypoints,
+                  next_origin_point,
+                  next_origin_point,
+                  next_target_point->time_horizon,
+                  dt_for_sampling_points_,
+                  trajectory);
+    double reference_s_position = next_target_point->frenet_point.s_state(0);
+    double acutual_s_positon = trajectory.frenet_trajectory_points.back().s_state(0);
+    if(reference_s_position < acutual_s_positon)
     {
-      double dist = calculate2DDistace(waypoints[i].pose.pose.position,
-                                       next_target_point->cartesian_point);
-      if(dist < min_dist && dist > minimum_distance_to_converge)
+      std::cerr << "offseeeeeeeeeeeeeeeeeeeeeeet"  << std::endl;
+      double min_dist = 99999;
+      size_t offset_index = 0;
+      bool is_offset = false;
+      const std::vector<autoware_msgs::Waypoint> waypoints = 
+      kept_current_trajectory->trajectory_points.waypoints;
+      std::cerr << "num wps " << waypoints.size() << std::endl;
+      for(size_t i = 0; i < waypoints.size(); i++)
       {
-        min_dist = dist;
-        std::cerr << "offset min dist " << min_dist << std::endl;
-        next_origin_point = kept_current_trajectory->frenet_trajectory_points[i];
-        offset_index = i;
-        is_offset = true;
+        double dist = calculate2DDistace(waypoints[i].pose.pose.position,
+                                        next_target_point->cartesian_point);
+        //TODO: calculate this value by constrained optimization
+        const double minimum_distance_to_converge = 6;
+        if(dist < min_dist && dist > minimum_distance_to_converge)
+        {
+          min_dist = dist;
+          std::cerr << "offset min dist " << min_dist << std::endl;
+          next_origin_point = kept_current_trajectory->frenet_trajectory_points[i];
+          offset_index = i;
+          is_offset = true;
+        }
+      }
+      //debug
+      if(!is_offset)
+      {
+        std::cerr << "failed offset"  << std::endl;
+      }
+      else
+      {
+        if(current_target_point)
+        {
+          std::cerr << "current target point extist"  << std::endl;
+          std::cerr << "frenet " << kept_current_trajectory->frenet_trajectory_points[offset_index].s_state << std::endl;
+          std::cerr << "cartesian " << kept_current_trajectory->trajectory_points.waypoints[offset_index].pose.pose.position.x << std::endl;
+        }
+        current_target_point->cartesian_point = 
+          kept_current_trajectory->trajectory_points.waypoints[offset_index].pose.pose.position;
+        current_target_point->frenet_point = 
+          kept_current_trajectory->frenet_trajectory_points[offset_index];
+        
+        size_t num_kept_current_waypoints = kept_current_trajectory->trajectory_points.waypoints.size();
+        for(size_t i = (num_kept_current_waypoints - 1); i > offset_index; i--)
+        {
+          kept_current_trajectory->trajectory_points.waypoints.erase(
+                kept_current_trajectory->trajectory_points.waypoints.end());
+          kept_current_trajectory->frenet_trajectory_points.erase(
+            kept_current_trajectory->frenet_trajectory_points.end());
+        }
       }
     }
-    //debug
-    if(!is_offset)
-    {
-      std::cerr << "failed offset"  << std::endl;
-    }
-    else
-    {
-      if(current_target_point)
-      {
-        std::cerr << "current target point extist"  << std::endl;
-        std::cerr << "frenet " << kept_current_trajectory->frenet_trajectory_points[offset_index].s_state << std::endl;
-        std::cerr << "cartesian " << kept_current_trajectory->trajectory_points.waypoints[offset_index].pose.pose.position.x << std::endl;
-      }
-      std::cerr << "aaaa" << std::endl;
-      current_target_point->cartesian_point = 
-        kept_current_trajectory->trajectory_points.waypoints[offset_index].pose.pose.position;
-      current_target_point->frenet_point = 
-        kept_current_trajectory->frenet_trajectory_points[offset_index];
-      
-      std::cerr << "aaaa1" << std::endl;
-      size_t num_kept_current_waypoints = kept_current_trajectory->trajectory_points.waypoints.size();
-      for(size_t i = (num_kept_current_waypoints - 1); i > offset_index; i--)
-      {
-        kept_current_trajectory->trajectory_points.waypoints.erase(
-              kept_current_trajectory->trajectory_points.waypoints.end());
-        kept_current_trajectory->frenet_trajectory_points.erase(
-          kept_current_trajectory->frenet_trajectory_points.end());
-      }
-      std::cerr << "aaaa2" << std::endl;
-      
-    }
-    
     
   }
+  // double distance_from_last_wp_to_next_reference_point = calculate2DDistace(
+  //   kept_current_trajectory->trajectory_points.waypoints.back().pose.pose.position,
+  //   next_target_point->cartesian_point);
+  // //TODO: calculate this value by constrained optimization
+  // const double minimum_distance_to_converge = 6;
+  // if(distance_from_last_wp_to_next_reference_point < minimum_distance_to_converge)
+  // {
+  //   std::cerr << "offseeeeeeeeeeeeeeeeeeeeeeet"  << std::endl;
+  //   double min_dist = 99999;
+  //   size_t offset_index = 0;
+  //   bool is_offset = false;
+  //   const std::vector<autoware_msgs::Waypoint> waypoints = 
+  //   kept_current_trajectory->trajectory_points.waypoints;
+  //   std::cerr << "num wps " << waypoints.size() << std::endl;
+  //   for(size_t i = 0; i < waypoints.size(); i++)
+  //   {
+  //     double dist = calculate2DDistace(waypoints[i].pose.pose.position,
+  //                                      next_target_point->cartesian_point);
+  //     if(dist < min_dist && dist > minimum_distance_to_converge)
+  //     {
+  //       min_dist = dist;
+  //       std::cerr << "offset min dist " << min_dist << std::endl;
+  //       next_origin_point = kept_current_trajectory->frenet_trajectory_points[i];
+  //       offset_index = i;
+  //       is_offset = true;
+  //     }
+  //   }
+  //   //debug
+  //   if(!is_offset)
+  //   {
+  //     std::cerr << "failed offset"  << std::endl;
+  //   }
+  //   else
+  //   {
+  //     if(current_target_point)
+  //     {
+  //       std::cerr << "current target point extist"  << std::endl;
+  //       std::cerr << "frenet " << kept_current_trajectory->frenet_trajectory_points[offset_index].s_state << std::endl;
+  //       std::cerr << "cartesian " << kept_current_trajectory->trajectory_points.waypoints[offset_index].pose.pose.position.x << std::endl;
+  //     }
+  //     current_target_point->cartesian_point = 
+  //       kept_current_trajectory->trajectory_points.waypoints[offset_index].pose.pose.position;
+  //     current_target_point->frenet_point = 
+  //       kept_current_trajectory->frenet_trajectory_points[offset_index];
+      
+  //     size_t num_kept_current_waypoints = kept_current_trajectory->trajectory_points.waypoints.size();
+  //     for(size_t i = (num_kept_current_waypoints - 1); i > offset_index; i--)
+  //     {
+  //       kept_current_trajectory->trajectory_points.waypoints.erase(
+  //             kept_current_trajectory->trajectory_points.waypoints.end());
+  //       kept_current_trajectory->frenet_trajectory_points.erase(
+  //         kept_current_trajectory->frenet_trajectory_points.end());
+  //     }
+  //   }
+  // }
   return is_new_reference_point;
 }
 
