@@ -1439,7 +1439,6 @@ bool FrenetPlanner::getNextReferencePoint(
     // next_origin_point = kept_current_trajectory->frenet_trajectory_points.back();
     return is_new_reference_point;
   }
-  std::cerr << "sssss"  << std::endl;
   next_origin_point = kept_current_trajectory->frenet_trajectory_points.back();
   
   //TODO: validation that make sure next_reference_point.s_p > current_reference_point.s_p
@@ -1495,12 +1494,6 @@ bool FrenetPlanner::getNextReferencePoint(
       }
       else
       {
-        if(kept_current_reference_point)
-        {
-          std::cerr << "current target point extist"  << std::endl;
-          std::cerr << "frenet " << kept_current_trajectory->frenet_trajectory_points[offset_index].s_state << std::endl;
-          std::cerr << "cartesian " << kept_current_trajectory->trajectory_points.waypoints[offset_index].pose.pose.position.x << std::endl;
-        }
         kept_current_reference_point->cartesian_point = 
           kept_current_trajectory->trajectory_points.waypoints[offset_index].pose.pose.position;
         kept_current_reference_point->frenet_point = 
