@@ -91,21 +91,14 @@ public:
               const geometry_msgs::TransformStamped& in_wp2map_tf,
               autoware_msgs::Lane& out_trajectory,
               std::vector<autoware_msgs::Lane>& out_debug_trajectories,
-              std::vector<geometry_msgs::Point>& out_target_points);
+              std::vector<geometry_msgs::Point>& out_reference_points);
   
   
 private:
-  int debug_change_traj_count_;
   double dt_for_sampling_points_;
-  double search_radius_for_target_point_;
-  
-  bool is_initial_goal_;
-  
   
   // TODO: think better name previous_best_trajectoy?
   std::unique_ptr<Trajectory> kept_current_trajectory_;
-  std::unique_ptr<FrenetPoint> frenet_target_trajectory_point_;
-  
   std::unique_ptr<Trajectory> kept_next_trajectory_;
   
   
@@ -131,7 +124,7 @@ private:
     const std::vector<Point>& lane_points,
     const std::vector<autoware_msgs::Waypoint>& reference_waypoints,  
     const FrenetPoint& origin_frenet_point,
-    const FrenetPoint& target_freent_point,
+    const FrenetPoint& reference_freent_point,
     const double time_horizon,
     const double dt_for_sampling_points, 
     Trajectory& trajectory);
@@ -192,7 +185,7 @@ private:
         const geometry_msgs::Point& compared_point);
         
         
-  // pick up target point from reference waypoints
+  // pick up reference point from reference waypoints
   bool getNewReferencePoint(
        const geometry_msgs::Point& origin_cartesian_point,
        const FrenetPoint& origin_frenet_point,
@@ -204,7 +197,7 @@ private:
   );
   
   
-  // pick up new target point from kept_trajectory/lane points
+  // pick up new reference point from kept_trajectory/lane points
   bool updateReferencePoint(
     const std::unique_ptr<Trajectory>& kept_trajectory,
     const std::vector<autoware_msgs::Waypoint>& waypoints,
@@ -224,7 +217,7 @@ private:
                    const autoware_msgs::DetectedObjectArray& objects);
   
   bool isReferencePointValid(const geometry_msgs::Pose& ego_pose,
-                          const geometry_msgs::Point& cartesian_target_point,
+                          const geometry_msgs::Point& cartesian_reference_point,
                           const geometry_msgs::Point& last_reference_waypoint);
                           
   bool drawTrajectories(
@@ -235,7 +228,7 @@ private:
               std::vector<Trajectory>& trajectories,
               std::vector<autoware_msgs::Lane>& out_debug_trajectories);
   
-  bool getOriginPointAndTargetPoint(
+  bool getOriginPointAndReferencePoint(
     const geometry_msgs::Pose& ego_pose,
     const double ego_linear_velocity,
     const std::vector<autoware_msgs::Waypoint>& reference_waypoints,
@@ -243,9 +236,9 @@ private:
     const autoware_msgs::DetectedObjectArray& objects,
     std::unique_ptr<Trajectory>& kept_current_trajectory,  
     FrenetPoint& origin_frenet_point,
-    std::unique_ptr<ReferencePoint>& current_target_point);
+    std::unique_ptr<ReferencePoint>& current_reference_point);
     
-  bool getNextTargetPoint(
+  bool getNextReferencePoint(
     const geometry_msgs::Pose& ego_pose,
     const double origin_linear_velocity,    
     const std::vector<autoware_msgs::Waypoint>& reference_waypoints,
@@ -253,8 +246,8 @@ private:
     const autoware_msgs::DetectedObjectArray& objects,
     std::unique_ptr<Trajectory>& kept_current_trajectory,
     std::unique_ptr<Trajectory>& kept_next_trajectory,
-    std::unique_ptr<ReferencePoint>& current_target_point,
-    std::unique_ptr<ReferencePoint>& next_target_point,
+    std::unique_ptr<ReferencePoint>& kept_current_reference_point,
+    std::unique_ptr<ReferencePoint>& kept_next_reference_point,
     FrenetPoint& next_origin_point);
     
   bool isTrajectoryCollisionFree(
