@@ -225,8 +225,7 @@ private:
   
   bool isReferencePointValid(const geometry_msgs::Pose& ego_pose,
                           const geometry_msgs::Point& cartesian_target_point,
-                          const geometry_msgs::Point& last_reference_waypoint,
-                          const size_t num_kept_current_trajectory_points);
+                          const geometry_msgs::Point& last_reference_waypoint);
                           
   bool drawTrajectories(
               const FrenetPoint& frenet_current_point,

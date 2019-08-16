@@ -650,6 +650,7 @@ bool FrenetPlanner::getBestTrajectory(
     }
   } 
   
+  //TODO: this might be bad effect
   if(!has_got_best_trajectory)
   {
     std::cerr << "calling null update!!!!"  << std::endl;
@@ -1020,8 +1021,7 @@ bool FrenetPlanner::isCollision(const autoware_msgs::Waypoint& waypoint,
 bool FrenetPlanner::isReferencePointValid(
   const geometry_msgs::Pose& ego_pose,
   const geometry_msgs::Point& cartesian_reference_point,
-  const geometry_msgs::Point& last_reference_waypoint,
-  const size_t num_kept_current_trajectory_points)
+  const geometry_msgs::Point& last_reference_waypoint)
 {
   //check if reference point is at the end of global waypoints
   double distance = calculate2DDistace(cartesian_reference_point,
@@ -1032,13 +1032,13 @@ bool FrenetPlanner::isReferencePointValid(
     return true;
   }
   
-  // check if kept_current_trahectory is too short
-  // if too short, current reference point is no longer valid
-  //TODO: use of parameter/variable
-  if(num_kept_current_trajectory_points <= 2)
-  {
-    return false;
-  }
+  // // check if kept_current_trahectory is too short
+  // // if too short, current reference point is no longer valid
+  // //TODO: use of parameter/variable
+  // if(num_kept_current_trajectory_points <= 2)
+  // {
+  //   return false;
+  // }
   
   // check if current_reference_point is behingd ego 
   geometry_msgs::Point relative_cartesian_point =  
@@ -1225,8 +1225,7 @@ bool FrenetPlanner::getNextTargetPoint(
   //validity check for current referencer point
   if(!isReferencePointValid(ego_pose,
                            current_target_point->cartesian_point,
-                           reference_waypoints.back().pose.pose.position,
-                           kept_current_trajectory->trajectory_points.waypoints.size()))
+                           reference_waypoints.back().pose.pose.position))
   {
     std::cerr << "reference point is not valid" << std::endl;
     if(!next_target_point)
@@ -1301,7 +1300,7 @@ bool FrenetPlanner::getNextTargetPoint(
       if(kept_next_trajectory)
       {
         kept_current_trajectory.reset(new Trajectory(*kept_next_trajectory));
-        kept_current_trajectory = nullptr;
+        kept_next_trajectory = nullptr;
         
       }
       if(next_target_point)
@@ -1346,6 +1345,43 @@ bool FrenetPlanner::getNextTargetPoint(
       kept_next_trajectory = nullptr;
       next_target_point = nullptr;
     }
+  }
+  
+  if(kept_current_trajectory)
+  {
+    std::cerr << "kept_current_taj extits"  << std::endl;
+    std::cerr << "current traj size" << kept_current_trajectory->frenet_trajectory_points.size() << std::endl;
+  }
+  else
+  {
+    std::cerr << "kept_current_taj nullptr"  << std::endl;
+  }
+  if(current_target_point)
+  {
+    std::cerr << "current reference extits"  << std::endl;
+  }
+  else
+  {
+    std::cerr << "current reference nullptr"  << std::endl;
+  }
+  
+  if(kept_next_trajectory)
+  {
+    std::cerr << "kept_next_taj extits"  << std::endl;
+    std::cerr << "current traj size" << kept_next_trajectory->frenet_trajectory_points.size() << std::endl;
+  }
+  else
+  {
+    std::cerr << "kept_next_taj nullptr"  << std::endl;
+  }
+  
+  if(next_target_point)
+  {
+    std::cerr << "next reference extits"  << std::endl;
+  }
+  else
+  {
+    std::cerr << "next reference nullptr"  << std::endl;
   }
 
   
@@ -1394,6 +1430,13 @@ bool FrenetPlanner::getNextTargetPoint(
     next_target_point.reset(new ReferencePoint(next_point));
     is_new_reference_point = true;
   }
+  else
+  {
+    std::cerr << "next target is nullptr and distance > 10"  << std::endl;
+    std::cerr << "current traj size" << kept_current_trajectory->frenet_trajectory_points.size() << std::endl;
+  }
+  
+  
   if(!is_new_reference_point)
   {
     // next_origin_point = kept_current_trajectory->frenet_trajectory_points.back();
