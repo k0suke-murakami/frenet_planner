@@ -761,22 +761,15 @@ bool FrenetPlanner::getNewReferencePoint(
   ReferenceType reference_type = ReferenceType::Unknown;
   FrenetPoint reference_frenet_point;
   geometry_msgs::Point reference_cartesian_point;
-  //TODO: currently max offset equal 0; need to change when exploring point
-  // const double lateral_max_offset = 0.0;
-  // const double lateral_sampling_resolution = 1.0;
-  // for(double lateral_offset = 0.0;
-  //     lateral_offset <= lateral_max_offset;
-  //     lateral_offset+=lateral_sampling_resolution)
-  // {
+  if(current_reference_point.reference_type != ReferenceType::Unknown)
+  {
+    
     double time_horizon = 8.0;
-    FrenetPoint offset_reference_frenet_point;
-    offset_reference_frenet_point = default_reference_frenet_point;
-    // offset_reference_frenet_point.d_state(0) += lateral_offset;
     Trajectory trajectory;
     getTrajectory(lane_points,
                   reference_waypoints,
                   current_reference_point.frenet_point,
-                  offset_reference_frenet_point,
+                  default_reference_frenet_point,
                   time_horizon,
                   dt_for_sampling_points_,
                   trajectory);
@@ -788,7 +781,7 @@ bool FrenetPlanner::getNewReferencePoint(
     if(is_collison_free)
     {
       reference_type = ReferenceType::Waypoint;
-      reference_frenet_point = offset_reference_frenet_point;
+      reference_frenet_point = default_reference_frenet_point;
       reference_cartesian_point = trajectory.trajectory_points.waypoints.back().pose.pose.position;
     }
     else
@@ -814,7 +807,42 @@ bool FrenetPlanner::getNewReferencePoint(
         reference_frenet_point);
       reference_cartesian_point = reference_point;
     }
-  // }
+  }
+  else
+  {
+    // TODO: currently max offset equal 0; need to change when exploring point
+    const double lateral_max_offset = 0.0;
+    const double lateral_sampling_resolution = 1.0;
+    for(double lateral_offset = 0.0;
+        lateral_offset <= lateral_max_offset;
+        lateral_offset+=lateral_sampling_resolution)
+    {
+      double time_horizon = 8.0;
+      FrenetPoint offset_reference_frenet_point;
+      offset_reference_frenet_point = default_reference_frenet_point;
+      offset_reference_frenet_point.d_state(0) += lateral_offset;
+      Trajectory trajectory;
+      getTrajectory(lane_points,
+                    reference_waypoints,
+                    current_reference_point.frenet_point,
+                    offset_reference_frenet_point,
+                    time_horizon,
+                    dt_for_sampling_points_,
+                    trajectory);
+      size_t collision_waypoint_index;
+      bool is_collison_free = isTrajectoryCollisionFree(
+                                trajectory.trajectory_points.waypoints,
+                                objects,
+                                collision_waypoint_index);
+      if(is_collison_free)
+      {
+        reference_type = ReferenceType::AvoidingPoint;
+        reference_frenet_point = offset_reference_frenet_point;
+        reference_cartesian_point = trajectory.trajectory_points.waypoints.back().pose.pose.position;
+      }
+    }
+  }
+  
   
   
   if(reference_type == ReferenceType::Waypoint)
