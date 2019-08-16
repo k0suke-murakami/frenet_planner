@@ -71,6 +71,7 @@ void FrenetPlanner::doPlan(const geometry_msgs::PoseStamped& in_current_pose,
 {   
   //TODO: seek more readable code
   //TODO: think the interface between the components
+  std::cerr << "start process of doPlan" << std::endl;
   FrenetPoint origin_point;
   if(getOriginPointAndReferencePoint(
      in_current_pose.pose,
@@ -1120,39 +1121,6 @@ bool FrenetPlanner::getOriginPointAndReferencePoint(
     FrenetPoint& origin_frenet_point,
     std::unique_ptr<ReferencePoint>& current_reference_point)
 {
-  // // update kept_trajectory based on current pose
-  // if(kept_current_trajectory)
-  // {
-  //   std::cerr << "before crop " << kept_current_trajectory_->trajectory_points.waypoints.size() << std::endl;
-  //   Trajectory dc_kept_trajectory = *kept_current_trajectory;
-  //   for(const auto& waypoint: dc_kept_trajectory.trajectory_points.waypoints)
-  //   {
-  //     if(kept_current_trajectory->trajectory_points.waypoints.size() <= 2)
-  //     {
-  //       break;
-  //     }
-  //     //TODO: make method for this
-  //     // check if current_point is behingd ego 
-  //     geometry_msgs::Point relative_cartesian_point =  
-  //     transformToRelativeCoordinate2D(waypoint.pose.pose.position, ego_pose);
-  //     double angle = std::atan2(relative_cartesian_point.y, relative_cartesian_point.x);
-  //     //       |
-  //     //       | abs(angle)<PI/2
-  //     //------ego-------
-  //     //       | 
-  //     //       | abs(angle)>PI/2
-  //     //
-  //     if(std::abs(angle) > M_PI/2)
-  //     {
-  //       kept_current_trajectory->trajectory_points.waypoints.erase(
-  //           kept_current_trajectory->trajectory_points.waypoints.begin());
-  //       kept_current_trajectory->frenet_trajectory_points.erase(
-  //         kept_current_trajectory->frenet_trajectory_points.begin());
-  //     }
-  //   }
-  //   std::cerr << "after crop "<< kept_current_trajectory_->trajectory_points.waypoints.size()  << std::endl;
-  // }
-  
   //TODO: seek more readable code
   //TODO: think the interface between the components
   bool is_new_reference_point = false;
