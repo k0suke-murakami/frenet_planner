@@ -715,8 +715,7 @@ bool FrenetPlanner::isFlaggedWaypointCloseWithPoint(
 
 //TODO: not considering the size of waypoints
 bool FrenetPlanner::getNewReferencePoint(
-  const geometry_msgs::Point& origin_cartesian_point,
-  const FrenetPoint& origin_frenet_point,
+  const ReferencePoint& current_reference_point,
   const double origin_linear_velocity,  
   const std::vector<autoware_msgs::Waypoint>& reference_waypoints,
   const std::vector<Point>& lane_points,
@@ -737,8 +736,8 @@ bool FrenetPlanner::getNewReferencePoint(
   autoware_msgs::Waypoint default_target_waypoint;
   for(const auto& waypoint: reference_waypoints)
   {
-    double dx = waypoint.pose.pose.position.x - origin_cartesian_point.x;
-    double dy = waypoint.pose.pose.position.y - origin_cartesian_point.y;
+    double dx = waypoint.pose.pose.position.x - current_reference_point.cartesian_point.x;
+    double dy = waypoint.pose.pose.position.y - current_reference_point.cartesian_point.y;
     double distance = std::sqrt(std::pow(dx, 2)+std::pow(dy,2));
     // if(distance < search_radius_for_target_point_ && distance > max_distance)
     if(distance < lookahead_distance && distance > max_distance)
@@ -776,7 +775,7 @@ bool FrenetPlanner::getNewReferencePoint(
     Trajectory trajectory;
     getTrajectory(lane_points,
                   reference_waypoints,
-                  origin_frenet_point,
+                  current_reference_point.frenet_point,
                   offset_reference_frenet_point,
                   time_horizon,
                   dt_for_sampling_points_,
@@ -795,7 +794,7 @@ bool FrenetPlanner::getNewReferencePoint(
     else
     {
       std::cerr << "Put stop at collision point inside getNewReferencePoint " << std::endl;
-      reference_type = ReferenceType::AvoidableStaticObstacle;
+      reference_type = ReferenceType::Obstacle;
       double stop_linear_velocity = 0.0;
       
       size_t reference_waypoint_index = 0;
@@ -831,7 +830,7 @@ bool FrenetPlanner::getNewReferencePoint(
     reference_point.reference_type = reference_type;
     reference_point.cartesian_point = reference_cartesian_point;
   }
-  else if(reference_type == ReferenceType::AvoidableStaticObstacle)
+  else if(reference_type == ReferenceType::Obstacle)
   {
     reference_point.frenet_point = reference_frenet_point;
     reference_point.lateral_offset = 0.0;
@@ -956,7 +955,7 @@ bool FrenetPlanner::updateReferencePoint(
     {
       reference_waypoint = current_trajectory_points[i];
       found_new_reference_point = true;
-      reference_point.reference_type = ReferenceType::AvoidableStaticObstacle;
+      reference_point.reference_type = ReferenceType::Obstacle;
       std::cerr << "Detect collision while updating reference point!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::endl;
       break;
     }
@@ -1402,6 +1401,7 @@ bool FrenetPlanner::getNextReferencePoint(
       is_new_reference_point =  true;
     }
   }
+  //TODO: use of param/variable
   else if(distance < 10 && !kept_next_reference_point)
   {
     std::cerr << "start generating new reference point" << std::endl;
@@ -1417,8 +1417,7 @@ bool FrenetPlanner::getNextReferencePoint(
     //make initinal target point
     ReferencePoint next_point;
     getNewReferencePoint(
-      kept_current_reference_point->cartesian_point,
-      kept_current_reference_point->frenet_point,
+      *kept_current_reference_point,
       origin_linear_velocity,
       reference_waypoints,
       lane_points,

@@ -43,9 +43,9 @@ struct FrenetPoint
 enum class ReferenceType
 {
   Waypoint,
-  AvoidableStaticObstacle,
-  NonAvoidableStaticObstacle,
+  Obstacle,
   StopLine,
+  AvoidingPoint,
   Unknown
 };
 
@@ -187,8 +187,7 @@ private:
         
   // pick up reference point from reference waypoints
   bool getNewReferencePoint(
-       const geometry_msgs::Point& origin_cartesian_point,
-       const FrenetPoint& origin_frenet_point,
+       const ReferencePoint& origin_cartesian_point,
        const double origin_linear_velocity,
        const std::vector<autoware_msgs::Waypoint>& waypoints,
        const std::vector<Point>& lane_points,
