@@ -722,7 +722,9 @@ bool FrenetPlanner::getNewReferencePoint(
   const autoware_msgs::DetectedObjectArray& objects,
   ReferencePoint& reference_point)
 {
-  std::cerr << "calling getNewReferencePoint" << std::endl;
+  std::cerr << "calling getNewReferencePoint for next_reference_point" << std::endl;
+  std::cerr << "----------------------------------------------current reference type " 
+  << static_cast<int>(current_reference_point.reference_type) << std::endl;
   //change look ahead distance based on current velocity
   const double lookahead_distance_ratio = 4.0;
   double lookahead_distance = fabs(origin_linear_velocity) * lookahead_distance_ratio;
@@ -754,14 +756,14 @@ bool FrenetPlanner::getNewReferencePoint(
     lane_points,
     default_reference_frenet_point);
   
-  //TODO: change the behavior here based on current_reference_point's reference type
   
+  //TODO: change the behavior here based on current_reference_point's reference type
   //TODO: need refactor 
   // only assuming avoid obstacle by moving right
   ReferenceType reference_type = ReferenceType::Unknown;
   FrenetPoint reference_frenet_point;
   geometry_msgs::Point reference_cartesian_point;
-  if(current_reference_point.reference_type != ReferenceType::Unknown)
+  if(current_reference_point.reference_type != ReferenceType::Obstacle)
   {
     
     double time_horizon = 8.0;
@@ -794,7 +796,6 @@ bool FrenetPlanner::getNewReferencePoint(
       //TODO: use of param/variable
       if(collision_waypoint_index >= 3)
       {
-        
         reference_waypoint_index = collision_waypoint_index - 3;
       }
       
@@ -810,9 +811,9 @@ bool FrenetPlanner::getNewReferencePoint(
   }
   else
   {
-    // TODO: currently max offset equal 0; need to change when exploring point
-    const double lateral_max_offset = 0.0;
+    const double lateral_max_offset = 7.0;
     const double lateral_sampling_resolution = 1.0;
+    bool has_got_collision_free_trajectory = false;
     for(double lateral_offset = 0.0;
         lateral_offset <= lateral_max_offset;
         lateral_offset+=lateral_sampling_resolution)
@@ -839,15 +840,26 @@ bool FrenetPlanner::getNewReferencePoint(
         reference_type = ReferenceType::AvoidingPoint;
         reference_frenet_point = offset_reference_frenet_point;
         reference_cartesian_point = trajectory.trajectory_points.waypoints.back().pose.pose.position;
+        has_got_collision_free_trajectory = true;
       }
     }
+    if(!has_got_collision_free_trajectory)
+    {
+      std::cerr << "error: could not find safe reference point; will stop at current reference point "  << std::endl;
+      reference_type = ReferenceType::Unknown;
+      reference_frenet_point = current_reference_point.frenet_point;
+      reference_frenet_point.s_state(1) = 0.0;
+      reference_cartesian_point = current_reference_point.cartesian_point;
+    }
   }
+  
   
   
   
   if(reference_type == ReferenceType::Waypoint)
   {
     reference_point.frenet_point = reference_frenet_point;
+    reference_point.cartesian_point = reference_cartesian_point;
     reference_point.lateral_offset = 0.0;
     reference_point.lateral_sampling_resolution =0.01;
     reference_point.longutudinal_offset = 0.0;
@@ -856,11 +868,11 @@ bool FrenetPlanner::getNewReferencePoint(
     reference_point.time_horizon_offset = 6.0;
     reference_point.time_horizon_sampling_resolution = 2.0;
     reference_point.reference_type = reference_type;
-    reference_point.cartesian_point = reference_cartesian_point;
   }
   else if(reference_type == ReferenceType::Obstacle)
   {
     reference_point.frenet_point = reference_frenet_point;
+    reference_point.cartesian_point = reference_cartesian_point;
     reference_point.lateral_offset = 0.0;
     reference_point.lateral_sampling_resolution = 0.01;
     reference_point.longutudinal_offset = 0.0;
@@ -868,12 +880,26 @@ bool FrenetPlanner::getNewReferencePoint(
     reference_point.time_horizon = 8.0;
     reference_point.time_horizon_offset = 6.0;
     reference_point.time_horizon_sampling_resolution = 2.0;
-    reference_point.reference_type = ReferenceType::Waypoint;
+    reference_point.reference_type = reference_type;
+  }
+  else if(reference_type == ReferenceType::AvoidingPoint)
+  {
+    reference_point.frenet_point = reference_frenet_point;
     reference_point.cartesian_point = reference_cartesian_point;
+    reference_point.lateral_offset = 3.0;
+    reference_point.lateral_sampling_resolution = 0.5;
+    reference_point.longutudinal_offset = 0.0;
+    reference_point.longutudinal_sampling_resolution = 0.01;
+    reference_point.time_horizon = 8.0;
+    reference_point.time_horizon_offset = 6.0;
+    reference_point.time_horizon_sampling_resolution = 2.0;
+    reference_point.reference_type = reference_type;
   }
   else
   {
+    std::cerr << "stop at current reference point"  << std::endl;
     reference_point.frenet_point = reference_frenet_point;
+    reference_point.cartesian_point = reference_cartesian_point;
     reference_point.lateral_offset = 0.0;
     reference_point.lateral_sampling_resolution = 0.01;
     reference_point.longutudinal_offset = 0.0;
@@ -881,8 +907,7 @@ bool FrenetPlanner::getNewReferencePoint(
     reference_point.time_horizon = 8.0;
     reference_point.time_horizon_offset = 6.0;
     reference_point.time_horizon_sampling_resolution = 2.0;
-    reference_point.reference_type = ReferenceType::Waypoint;
-    reference_point.cartesian_point = reference_cartesian_point;
+    reference_point.reference_type = ReferenceType::Unknown;
   }
 }
 
