@@ -837,10 +837,12 @@ bool FrenetPlanner::getNewReferencePoint(
                                 collision_waypoint_index);
       if(is_collison_free)
       {
+        std::cerr << "lateral offset " << lateral_offset << std::endl;
         reference_type = ReferenceType::AvoidingPoint;
         reference_frenet_point = offset_reference_frenet_point;
         reference_cartesian_point = trajectory.trajectory_points.waypoints.back().pose.pose.position;
         has_got_collision_free_trajectory = true;
+        break;
       }
     }
     if(!has_got_collision_free_trajectory)
@@ -885,14 +887,15 @@ bool FrenetPlanner::getNewReferencePoint(
   else if(reference_type == ReferenceType::AvoidingPoint)
   {
     reference_point.frenet_point = reference_frenet_point;
+    reference_point.frenet_point.s_state(1)*= 0.75;
     reference_point.cartesian_point = reference_cartesian_point;
     reference_point.lateral_offset = 3.0;
     reference_point.lateral_sampling_resolution = 0.5;
     reference_point.longutudinal_offset = 0.0;
     reference_point.longutudinal_sampling_resolution = 0.01;
-    reference_point.time_horizon = 8.0;
-    reference_point.time_horizon_offset = 6.0;
-    reference_point.time_horizon_sampling_resolution = 2.0;
+    reference_point.time_horizon = 12.0;
+    reference_point.time_horizon_offset = 8.0;
+    reference_point.time_horizon_sampling_resolution = 1.0;
     reference_point.reference_type = reference_type;
   }
   else
@@ -1492,6 +1495,12 @@ bool FrenetPlanner::getNextReferencePoint(
     return is_new_reference_point;
   }
   next_origin_point = kept_current_trajectory->frenet_trajectory_points.back();
+  
+  //TODO: non-holnomic at low velocity; v_0.4
+  if(next_origin_point.s_state(1) < 0.1)
+  {
+    next_origin_point.s_state(1) += 0.3;
+  }
   
   //TODO: validation that make sure next_reference_point.s_p > current_reference_point.s_p
   if(kept_next_reference_point->frenet_point.s_state(0) <
