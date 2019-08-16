@@ -253,7 +253,7 @@ private:
   bool isTrajectoryCollisionFree(
     const std::vector<autoware_msgs::Waypoint>& trajectory_points,
     const autoware_msgs::DetectedObjectArray& objects,
-    autoware_msgs::Waypoint& collision_waypoint);
+    size_t& collision_waypoint_index);
     
   bool isTrajectoryCollisionFree(
     const std::vector<autoware_msgs::Waypoint>& trajectory_points,

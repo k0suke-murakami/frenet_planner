@@ -748,95 +748,79 @@ bool FrenetPlanner::getNewReferencePoint(
     }
   }
   
-  FrenetPoint default_target_frenet_point;
+  FrenetPoint default_reference_frenet_point;
   convertWaypoint2FrenetPoint(
     default_target_waypoint.pose.pose.position,
     default_target_waypoint.twist.twist.linear.x,
     lane_points,
-    default_target_frenet_point);
+    default_reference_frenet_point);
   
   //TODO: change the behavior here based on current_reference_point's reference type
   
   //TODO: need refactor 
   // only assuming avoid obstacle by moving right
   ReferenceType reference_type = ReferenceType::Unknown;
-  FrenetPoint target_frenet_point;
-  geometry_msgs::Point target_cartesian_point;
+  FrenetPoint reference_frenet_point;
+  geometry_msgs::Point reference_cartesian_point;
   //TODO: currently max offset equal 0; need to change when exploring point
-  const double lateral_max_offset = 0.0;
-  const double lateral_sampling_resolution = 1.0;
-  for(double lateral_offset = 0.0;
-      lateral_offset <= lateral_max_offset;
-      lateral_offset+=lateral_sampling_resolution)
-  {
+  // const double lateral_max_offset = 0.0;
+  // const double lateral_sampling_resolution = 1.0;
+  // for(double lateral_offset = 0.0;
+  //     lateral_offset <= lateral_max_offset;
+  //     lateral_offset+=lateral_sampling_resolution)
+  // {
     double time_horizon = 8.0;
-    FrenetPoint offset_target_frenet_point;
-    offset_target_frenet_point = default_target_frenet_point;
-    offset_target_frenet_point.d_state(0) += lateral_offset;
+    FrenetPoint offset_reference_frenet_point;
+    offset_reference_frenet_point = default_reference_frenet_point;
+    // offset_reference_frenet_point.d_state(0) += lateral_offset;
     Trajectory trajectory;
     getTrajectory(lane_points,
                   reference_waypoints,
                   origin_frenet_point,
-                  offset_target_frenet_point,
+                  offset_reference_frenet_point,
                   time_horizon,
                   dt_for_sampling_points_,
                   trajectory);
-    autoware_msgs::Waypoint collision_waypoint;
+    size_t collision_waypoint_index;
     bool is_collison_free = isTrajectoryCollisionFree(
                               trajectory.trajectory_points.waypoints,
                               objects,
-                              collision_waypoint);
+                              collision_waypoint_index);
     if(is_collison_free)
     {
       reference_type = ReferenceType::Waypoint;
-      target_frenet_point = offset_target_frenet_point;
-      target_cartesian_point = trajectory.trajectory_points.waypoints.back().pose.pose.position;
+      reference_frenet_point = offset_reference_frenet_point;
+      reference_cartesian_point = trajectory.trajectory_points.waypoints.back().pose.pose.position;
     }
     else
     {
-      std::cerr << "Put stop at origin point; inside getNewReferencePoint " << std::endl;
+      std::cerr << "Put stop at collision point inside getNewReferencePoint " << std::endl;
       reference_type = ReferenceType::AvoidableStaticObstacle;
       double stop_linear_velocity = 0.0;
-      // FrenetPoint target_frenet_point;
+      
+      size_t reference_waypoint_index = 0;
+      //TODO: use of param/variable
+      if(collision_waypoint_index >= 3)
+      {
+        
+        reference_waypoint_index = collision_waypoint_index - 3;
+      }
+      
+      geometry_msgs::Point reference_point = 
+        trajectory.trajectory_points.waypoints[reference_waypoint_index].pose.pose.position;
       convertWaypoint2FrenetPoint(
-        collision_waypoint.pose.pose.position,
+        reference_point,
         stop_linear_velocity,
         lane_points,
-        target_frenet_point);
-      target_cartesian_point = collision_waypoint.pose.pose.position;
+        reference_frenet_point);
+      reference_cartesian_point = reference_point;
     }
-    // if(is_collison_free)
-    // {
-    //   if(lateral_offset < 0.001)
-    //   {
-    //     reference_type = ReferenceType::Waypoint;
-    //   }
-    //   else
-    //   {
-    //     reference_type = ReferenceType::AvoidableStaticObstacle;
-    //   }
-    //   target_frenet_point = offset_target_frenet_point;
-    //   target_cartesian_point = trajectory.trajectory_points.waypoints.back().pose.pose.position;
-    //   break;
-    // }
-    // else if(!is_collison_free && lateral_offset >= lateral_max_offset)
-    // {
-      
-    //   double stop_linear_velocity = 0.0;
-    //   FrenetPoint target_frenet_point;
-    //   convertWaypoint2FrenetPoint(
-    //     collision_waypoint.pose.pose.position,
-    //     stop_linear_velocity,
-    //     lane_points,
-    //     target_frenet_point);
-    //   target_cartesian_point = collision_waypoint.pose.pose.position;
-    // }
-  }
+  // }
   
   
   if(reference_type == ReferenceType::Waypoint)
   {
-    reference_point.frenet_point = target_frenet_point;
+    reference_point.frenet_point = reference_frenet_point;
     reference_point.lateral_offset = 0.0;
     reference_point.lateral_sampling_resolution =0.01;
     reference_point.longutudinal_offset = 0.0;
@@ -845,11 +829,11 @@ bool FrenetPlanner::getNewReferencePoint(
     reference_point.time_horizon_offset = 6.0;
     reference_point.time_horizon_sampling_resolution = 2.0;
     reference_point.reference_type = reference_type;
-    reference_point.cartesian_point = target_cartesian_point;
+    reference_point.cartesian_point = reference_cartesian_point;
   }
   else if(reference_type == ReferenceType::AvoidableStaticObstacle)
   {
-    reference_point.frenet_point = target_frenet_point;
+    reference_point.frenet_point = reference_frenet_point;
     reference_point.lateral_offset = 0.0;
     reference_point.lateral_sampling_resolution = 0.01;
     reference_point.longutudinal_offset = 0.0;
@@ -858,11 +842,11 @@ bool FrenetPlanner::getNewReferencePoint(
     reference_point.time_horizon_offset = 6.0;
     reference_point.time_horizon_sampling_resolution = 2.0;
     reference_point.reference_type = ReferenceType::Waypoint;
-    reference_point.cartesian_point = target_cartesian_point;
+    reference_point.cartesian_point = reference_cartesian_point;
   }
   else
   {
-    reference_point.frenet_point = target_frenet_point;
+    reference_point.frenet_point = reference_frenet_point;
     reference_point.lateral_offset = 0.0;
     reference_point.lateral_sampling_resolution = 0.01;
     reference_point.longutudinal_offset = 0.0;
@@ -871,7 +855,7 @@ bool FrenetPlanner::getNewReferencePoint(
     reference_point.time_horizon_offset = 6.0;
     reference_point.time_horizon_sampling_resolution = 2.0;
     reference_point.reference_type = ReferenceType::Waypoint;
-    reference_point.cartesian_point = target_cartesian_point;
+    reference_point.cartesian_point = reference_cartesian_point;
   }
 }
 
@@ -1407,6 +1391,13 @@ bool FrenetPlanner::getNextReferencePoint(
   std::cerr << "sssss"  << std::endl;
   next_origin_point = kept_current_trajectory->frenet_trajectory_points.back();
   
+  //TODO: validation that make sure next_reference_point.s_p > current_reference_point.s_p
+  if(kept_next_reference_point->frenet_point.s_state(0) <
+     kept_current_reference_point->frenet_point.s_state(0))
+  {
+    std::cerr << "Error: next_reference_point is behind current_reference_point; getNextReferencePoint" << std::endl;
+  }
+  
   
   //offset only for stop waypoint
   //validity check if new_reference_point is too close to converge to 0
@@ -1482,14 +1473,14 @@ bool FrenetPlanner::getNextReferencePoint(
 bool FrenetPlanner::isTrajectoryCollisionFree(
     const std::vector<autoware_msgs::Waypoint>& trajectory_points,
     const autoware_msgs::DetectedObjectArray& objects,
-    autoware_msgs::Waypoint& collision_waypoint)
+    size_t& collision_waypoint_index)
 {
-  for(const auto& point: trajectory_points)
+  for(size_t i= 0; i< trajectory_points.size(); i++)
   {
-    bool is_collision = isCollision(point, objects);
+    bool is_collision = isCollision(trajectory_points[i], objects);
     if(is_collision)
     {
-      collision_waypoint = point;
+      collision_waypoint_index = i;
       return false;
     }
   }
