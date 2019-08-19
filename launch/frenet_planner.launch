@@ -1,0 +1,3 @@
+<launch>
+  <node pkg="frenet_planner" type="frenet_planner" name="frenet_planner" output="screen"/>
+</launch>
