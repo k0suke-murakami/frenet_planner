@@ -346,6 +346,53 @@ void FrenetPlannerROS::timerCallback(const ros::TimerEvent &e)
       
       points_marker_array.markers.push_back(debug_reference_point_text); 
     }
+    
+    //text
+    size_t debug_global_point_id = 0;
+    for (const auto& point: local_center_points)
+    {
+      visualization_msgs::Marker debug_center_point_text;
+      debug_center_point_text.lifetime = ros::Duration(0.2);
+      debug_center_point_text.header = in_pose_ptr_->header;
+      debug_center_point_text.ns = std::string("debug_center_point_text");
+      debug_center_point_text.action = visualization_msgs::Marker::ADD;
+      debug_center_point_text.id = unique_id;
+      debug_center_point_text.type = visualization_msgs::Marker::TEXT_VIEW_FACING;
+      debug_center_point_text.scale.x = 1;
+      debug_center_point_text.scale.y = 0.1;
+      debug_center_point_text.scale.z = 0.4;
+
+      // texts are green
+      debug_center_point_text.color.g = 1.0f;
+      debug_center_point_text.color.a = 1.0;
+      
+      
+      geometry_msgs::Point relative_p;
+      relative_p.y = 0.8;
+      geometry_msgs::Pose pose;
+      pose.position.x = point.tx ;
+      pose.position.y = point.ty ;
+      pose.position.z = in_waypoints_ptr_->waypoints.front().pose.pose.position.z;
+      pose.orientation.x = 0;
+      pose.orientation.y = 0;
+      pose.orientation.z = 0;
+      pose.orientation.w = 1.0;
+      tf::Transform inverse;
+      tf::poseMsgToTF(pose, inverse);
+
+      tf::Point p;
+      pointMsgToTF(relative_p, p);
+      tf::Point tf_p = inverse * p;
+      geometry_msgs::Point tf_point_msg;
+      pointTFToMsg(tf_p, tf_point_msg);
+      debug_center_point_text.pose.position = tf_point_msg;
+      debug_center_point_text.text = std::to_string(point.cumulated_s).substr(0, 5);
+      debug_global_point_id ++;
+      
+      unique_id++;
+      
+      points_marker_array.markers.push_back(debug_center_point_text); 
+    }
 
     
     visualization_msgs::Marker trajectory_marker;
@@ -450,8 +497,7 @@ void FrenetPlannerROS::timerCallback(const ros::TimerEvent &e)
       visualization_msgs::Marker trajectory_marker;
       trajectory_marker.lifetime = ros::Duration(0.2);
       trajectory_marker.header = in_pose_ptr_->header;
-      trajectory_marker.ns = std::string("debug_trajectory_marker") 
-                            + std::to_string(trajectory_count);
+      trajectory_marker.ns = std::string("debug_trajectory_marker") ;
       trajectory_marker.action = visualization_msgs::Marker::MODIFY;
       trajectory_marker.pose.orientation.w = 1.0;
       trajectory_marker.id = unique_id;
@@ -470,32 +516,7 @@ void FrenetPlannerROS::timerCallback(const ros::TimerEvent &e)
         trajectory_marker.points.push_back(geometry_point);
       }
       points_marker_array.markers.push_back(trajectory_marker);
-      unique_id++;
-      
-      
-      for (const auto& waypoint: trajectory.waypoints)
-      {
-        visualization_msgs::Marker trajectory_arrow_marker;
-        trajectory_arrow_marker.lifetime = ros::Duration(0.2);
-        trajectory_arrow_marker.header = in_pose_ptr_->header;
-        trajectory_arrow_marker.ns = std::string("debug_trajectory_arrow_marker")
-                                    + std::to_string(trajectory_count);
-        trajectory_arrow_marker.action = visualization_msgs::Marker::ADD;
-        trajectory_arrow_marker.id = unique_id;
-        trajectory_arrow_marker.type = visualization_msgs::Marker::ARROW;
-        trajectory_arrow_marker.scale.x = 1;
-        trajectory_arrow_marker.scale.y = 0.1;
-        trajectory_arrow_marker.scale.z = 0.1;
-
-        // Arrows are blue
-        trajectory_arrow_marker.color.b = 1.0f;
-        trajectory_arrow_marker.color.a = 0.0;
-        trajectory_arrow_marker.pose.position = waypoint.pose.pose.position;
-        trajectory_arrow_marker.pose.orientation = waypoint.pose.pose.orientation;
-        unique_id++;
-        
-        points_marker_array.markers.push_back(trajectory_arrow_marker);
-      }
+      unique_id++; 
     }
     
     markers_pub_.publish(points_marker_array);
