@@ -293,14 +293,16 @@ bool FrenetPlanner::getTrajectory(
       
     
     
+    FrenetPoint calculated_frenet_point;
+    calculated_frenet_point.s_state(0) = calculated_s;
+    calculated_frenet_point.s_state(1) = calculated_s_v;
+    calculated_frenet_point.s_state(2) = calculated_s_a;
+    calculated_frenet_point.d_state(0) = calculated_d;
+    calculated_frenet_point.d_state(1) = calculated_d_v;
+    calculated_frenet_point.d_state(2) = calculated_d_a;
     autoware_msgs::Waypoint waypoint;
     calculateWaypoint(lane_points, 
-                      calculated_s,
-                      calculated_s_v,
-                      calculated_s_a,
-                      calculated_d,
-                      calculated_d_v,
-                      calculated_d_a,
+                      calculated_frenet_point,
                       waypoint);
     // std::cerr << "waypoint linear velocity " << waypoint.twist.twist.linear.x << std::endl;
     waypoint.pose.pose.position.z = reference_waypoints.front().pose.pose.position.z;
@@ -333,16 +335,17 @@ bool FrenetPlanner::getTrajectory(
 
 bool FrenetPlanner::calculateWaypoint(
                            const std::vector<Point>& lane_points, 
-                           const double s_position,
-                           const double s_velocity,
-                           const double s_acceleration,
-                           const double d_position,
-                           const double d_velocity,
-                           const double d_acceleration,
+                           const FrenetPoint& frenet_point,
                            autoware_msgs::Waypoint& waypoint)
 {
   // add conversion script for low velocity
   // std::cerr << "-------" << std::endl;
+  double s_position = frenet_point.s_state(0);
+  double s_velocity = frenet_point.s_state(1);
+  double s_acceleration = frenet_point.s_state(2);
+  double d_position = frenet_point.d_state(0);
+  double d_velocity = frenet_point.d_state(1);
+  double d_acceleration = frenet_point.d_state(2);
   double min_abs_delta = 100000;
   double nearest_lane_point_delta_s;
   double nearest_lane_point_yaw;

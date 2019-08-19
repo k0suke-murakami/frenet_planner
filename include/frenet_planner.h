@@ -131,12 +131,7 @@ private:
     
     
   bool calculateWaypoint(const std::vector<Point>& lane_points, 
-                        const double s_position,
-                        const double s_velocity,
-                        const double s_acceleration,
-                        const double d_position,
-                        const double d_velocity,
-                        const double d_acceleration,
+                        const FrenetPoint& frenet_point,
                         autoware_msgs::Waypoint& waypoint);
   
   //TODO: this implementation might habe bug
