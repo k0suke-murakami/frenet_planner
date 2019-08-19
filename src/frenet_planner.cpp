@@ -613,6 +613,10 @@ bool FrenetPlanner::getBestTrajectory(
   std::vector<double> ref_waypoints_costs;
   double sum_ref_waypoints_costs;
   std::vector<double> ref_last_waypoints_costs;
+  std::vector<double> debug_last_waypoints_costs_s;
+  std::vector<double> debug_last_waypoints_costs_d;
+  std::vector<double> debug_last_waypoints_actual_s;
+  std::vector<double> debug_last_waypoints_actual_d;
   double sum_last_waypoints_costs;
   for(const auto& trajectory: trajectories)
   {
@@ -643,18 +647,28 @@ bool FrenetPlanner::getBestTrajectory(
     // std::pow(frenet_point_at_time_horizon.d_state(0) - kept_reference_point->frenet_point.d_state(0), 2); 
     ref_last_waypoints_costs.push_back(ref_last_waypoint_cost);
     sum_last_waypoints_costs+= ref_last_waypoint_cost;
+    debug_last_waypoints_costs_d.push_back(
+      frenet_point_at_time_horizon.d_state(0) - kept_reference_point->frenet_point.d_state(0));
+    debug_last_waypoints_costs_s.push_back(
+      frenet_point_at_time_horizon.s_state(0) - kept_reference_point->frenet_point.s_state(0));
+    debug_last_waypoints_actual_d.push_back(frenet_point_at_time_horizon.d_state(0));
+    debug_last_waypoints_actual_s.push_back(frenet_point_at_time_horizon.s_state(0));
   }
   
   std::vector<double> costs;
+  std::vector<double> debug_norm_ref_wps_costs;
+  std::vector<double> debug_norm_ref_last_wp_costs;
   for(size_t i = 0; i < ref_last_waypoints_costs.size(); i++)
   {
     double normalized_ref_waypoints_cost = ref_waypoints_costs[i]/sum_ref_waypoints_costs;
     double normalized_ref_last_waypoints_cost = ref_last_waypoints_costs[i]/sum_last_waypoints_costs;
     double sum_cost = normalized_ref_waypoints_cost + normalized_ref_last_waypoints_cost;
     costs.push_back(sum_cost);
-    std::cerr << "norm_ref_wps " << normalized_ref_waypoints_cost
-              << "norm ref last "<< normalized_ref_last_waypoints_cost
-              << "sum "<< sum_cost<< std::endl;
+    debug_norm_ref_wps_costs.push_back(normalized_ref_waypoints_cost);
+    debug_norm_ref_last_wp_costs.push_back(normalized_ref_last_waypoints_cost);
+    // std::cerr << "norm_ref_wps " << normalized_ref_waypoints_cost
+    //           << "norm ref last "<< normalized_ref_last_waypoints_cost
+    //           << "sum "<< sum_cost<< std::endl;
   }
   //arg sort 
   // https://stackoverflow.com/questions/1577475/c-sorting-and-keeping-track-of-indexes/12399290#12399290
@@ -663,10 +677,21 @@ bool FrenetPlanner::getBestTrajectory(
   std::sort(indexes.begin(), indexes.end(), [&costs](const size_t &a, const size_t &b)
                                                { return costs[a] < costs[b];});
   
+  std::cerr << "target s " << kept_reference_point->frenet_point.s_state(0) << std::endl;
+  std::cerr << "target d " << kept_reference_point->frenet_point.d_state(0) << std::endl;
+  // std::cerr << "last point s " << ->frenet_point.d_state(0) << std::endl;
+  // std::cerr << "last point d " << ->frenet_point.s_state(0) << std::endl;
   bool has_got_best_trajectory = false;
   for(const auto& index: indexes)
   {
     // std::cerr << "traj index from min cost " << index << std::endl;
+    std::cerr << "n-wps " << debug_norm_ref_wps_costs[index]
+              << " n-las "<< debug_norm_ref_last_wp_costs[index]
+              << " las s "<< debug_last_waypoints_costs_s[index]
+              << " act s "<< debug_last_waypoints_actual_s[index]
+              << " las d "<< debug_last_waypoints_costs_d[index]
+              << " act d "<< debug_last_waypoints_actual_d[index]
+              << " sum "<< costs[index]<< std::endl;
     if(isTrajectoryCollisionFree(
       trajectories[index].trajectory_points.waypoints,
       objects))
