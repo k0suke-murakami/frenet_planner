@@ -904,8 +904,8 @@ bool FrenetPlanner::getNewReferencePoint(
     reference_point.longutudinal_offset = 0.0;
     reference_point.longutudinal_sampling_resolution = 0.01;
     reference_point.time_horizon = 12.0;
-    reference_point.time_horizon_offset = 4.0;
-    reference_point.time_horizon_sampling_resolution = 2.0;
+    reference_point.time_horizon_offset = 8.0;
+    reference_point.time_horizon_sampling_resolution = 1.0;
     reference_point.reference_type = reference_type;
   }
   else if(reference_type == ReferenceType::Obstacle)
@@ -996,8 +996,8 @@ bool FrenetPlanner::getInitialReferencePoint(
   reference_point.lateral_sampling_resolution =0.01;
   reference_point.longutudinal_offset = 0.0;
   reference_point.longutudinal_sampling_resolution = 0.01;
-  reference_point.time_horizon = 16.0;
-  reference_point.time_horizon_offset = 6.0;
+  reference_point.time_horizon = 12.0;
+  reference_point.time_horizon_offset = 10.0;
   reference_point.time_horizon_sampling_resolution = 2.0;
   reference_point.reference_type = ReferenceType::Waypoint;
   reference_point.cartesian_point = default_reference_waypoint.pose.pose.position;
@@ -1098,8 +1098,8 @@ bool FrenetPlanner::updateReferencePoint(
     reference_point.lateral_sampling_resolution = 2.0;
     reference_point.longutudinal_offset = 0.0;
     reference_point.longutudinal_sampling_resolution = 0.01;
-    reference_point.time_horizon = 16.0;
-    reference_point.time_horizon_offset = 6.0;
+    reference_point.time_horizon = 12.0;
+    reference_point.time_horizon_offset = 10.0;
     reference_point.time_horizon_sampling_resolution = 2.0;
     
   }
