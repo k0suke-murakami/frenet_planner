@@ -127,7 +127,7 @@ void FrenetPlanner::doPlan(const geometry_msgs::PoseStamped& in_current_pose,
                         next_origin_point))
   {
     
-    std::cerr << "log: update [next] referece point" << std::endl;
+    std::cerr << "log: drawTrajectories" << std::endl;
     //validity
     //draw trajectories
     std::vector<Trajectory> trajectories;
@@ -137,17 +137,36 @@ void FrenetPlanner::doPlan(const geometry_msgs::PoseStamped& in_current_pose,
                     in_reference_waypoints,
                     trajectories,
                     out_debug_trajectories);
+                    
     //get best trajectory
+    bool succsessfully_get_best_trajectory =
     getBestTrajectory(trajectories,
                       in_nearest_lane_points,
                       in_objects,
                       in_reference_waypoints, 
                       kept_next_reference_point_,
                       kept_next_trajectory_);
+    //for debug
+    if(kept_next_reference_point_)
+    {
+      out_reference_points.push_back(kept_next_reference_point_->cartesian_point);
+    }
+    //debug
+    if(!succsessfully_get_best_trajectory)
+    {
+      std::cerr << "ATTENTION: calling null update!!!! getBestTrajectory"  << std::endl;
+      kept_next_reference_point_ = nullptr;
+      kept_next_trajectory_ = nullptr;
+    }
   }
   else
   {
     std::cerr << "log: not update [next] reference point"  << std::endl;
+    //for debug
+    if(kept_next_reference_point_)
+    {
+      out_reference_points.push_back(kept_next_reference_point_->cartesian_point);
+    }
   }
   
    
@@ -166,12 +185,6 @@ void FrenetPlanner::doPlan(const geometry_msgs::PoseStamped& in_current_pose,
     out_trajectory.waypoints.insert(out_trajectory.waypoints.end(),
                                     kept_next_trajectory_->trajectory_points.waypoints.begin(),
                                     kept_next_trajectory_->trajectory_points.waypoints.end());
-
-  }
-  //for debug
-  if(kept_next_reference_point_)
-  {
-    out_reference_points.push_back(kept_next_reference_point_->cartesian_point);
   }
  
 }
@@ -626,6 +639,8 @@ bool FrenetPlanner::getBestTrajectory(
     std::pow(frenet_point_at_time_horizon.d_state(0) - kept_reference_point->frenet_point.d_state(0), 2) + 
     std::pow(frenet_point_at_time_horizon.s_state(0) - kept_reference_point->frenet_point.s_state(0), 2) +
     std::pow(frenet_point_at_time_horizon.s_state(1) - kept_reference_point->frenet_point.s_state(1), 2);
+    // double ref_last_waypoint_cost = 
+    // std::pow(frenet_point_at_time_horizon.d_state(0) - kept_reference_point->frenet_point.d_state(0), 2); 
     ref_last_waypoints_costs.push_back(ref_last_waypoint_cost);
     sum_last_waypoints_costs+= ref_last_waypoint_cost;
   }
@@ -665,9 +680,14 @@ bool FrenetPlanner::getBestTrajectory(
   //TODO: this might be bad effect
   if(!has_got_best_trajectory)
   {
-    std::cerr << "ATTENTION: calling null update!!!! getBestTrajectory"  << std::endl;
-    kept_reference_point = nullptr;
-    kept_best_trajectory = nullptr;
+    return false;
+    // std::cerr << "ATTENTION: calling null update!!!! getBestTrajectory"  << std::endl;
+    // kept_reference_point = nullptr;
+    // kept_best_trajectory = nullptr;
+  }
+  else
+  {
+    return true;
   }
 }
 

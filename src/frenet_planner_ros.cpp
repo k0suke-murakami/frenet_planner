@@ -301,6 +301,51 @@ void FrenetPlannerROS::timerCallback(const ros::TimerEvent &e)
     }
     points_marker_array.markers.push_back(debug_target_point);
     unique_id++;
+    
+    //text
+    size_t debug_reference_point_id = 0;
+    for (const auto& point: out_target_points)
+    {
+      visualization_msgs::Marker debug_reference_point_text;
+      debug_reference_point_text.lifetime = ros::Duration(0.2);
+      debug_reference_point_text.header = in_pose_ptr_->header;
+      debug_reference_point_text.ns = std::string("debug_reference_point_text");
+      debug_reference_point_text.action = visualization_msgs::Marker::ADD;
+      debug_reference_point_text.id = unique_id;
+      debug_reference_point_text.type = visualization_msgs::Marker::TEXT_VIEW_FACING;
+      debug_reference_point_text.scale.x = 1;
+      debug_reference_point_text.scale.y = 0.1;
+      debug_reference_point_text.scale.z = 0.4;
+
+      // texts are green
+      debug_reference_point_text.color.g = 1.0f;
+      debug_reference_point_text.color.a = 1.0;
+      
+      
+      geometry_msgs::Point relative_p;
+      relative_p.y = 0.8;
+      geometry_msgs::Pose pose;
+      pose.position = point;
+      pose.orientation.x = 0;
+      pose.orientation.y = 0;
+      pose.orientation.z = 0;
+      pose.orientation.w = 1.0;
+      tf::Transform inverse;
+      tf::poseMsgToTF(pose, inverse);
+
+      tf::Point p;
+      pointMsgToTF(relative_p, p);
+      tf::Point tf_p = inverse * p;
+      geometry_msgs::Point tf_point_msg;
+      pointTFToMsg(tf_p, tf_point_msg);
+      debug_reference_point_text.pose.position = tf_point_msg;
+      debug_reference_point_text.text = std::to_string(debug_reference_point_id);
+      debug_reference_point_id ++;
+      
+      unique_id++;
+      
+      points_marker_array.markers.push_back(debug_reference_point_text); 
+    }
 
     
     visualization_msgs::Marker trajectory_marker;
@@ -384,7 +429,7 @@ void FrenetPlannerROS::timerCallback(const ros::TimerEvent &e)
       geometry_msgs::Point tf_point_msg;
       pointTFToMsg(tf_p, tf_point_msg);
       trajectory_points_text.pose.position = tf_point_msg;
-      trajectory_points_text.text += std::to_string(debug_wp_id);
+      trajectory_points_text.text = std::to_string(debug_wp_id);
       trajectory_points_text.text += std::string(": ");
       
       trajectory_points_text.text += 
