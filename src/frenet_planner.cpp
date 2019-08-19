@@ -368,6 +368,7 @@ bool FrenetPlanner::calculateWaypoint(
       
     }
   }
+  
   double velocity = std::sqrt(std::pow(1 - nearest_lane_point_curvature*d_position, 2)*
                               std::pow(s_velocity, 2) + 
                               std::pow(d_velocity,2));
@@ -433,7 +434,6 @@ bool FrenetPlanner::convertFrenetPosition2CartesianPosition(
 {
   waypoint_position.x = nearest_lane_cartesian_point.x + delta_s*std::cos(delta_yaw);
   waypoint_position.y = nearest_lane_cartesian_point.y + delta_s*std::sin(delta_yaw);
-  // TODO: this might be naive implemetation: need to be revisited
   waypoint_position.x += frenet_d*std::cos(delta_yaw-M_PI/2);
   waypoint_position.y += frenet_d*std::sin(delta_yaw-M_PI/2);
 
@@ -803,6 +803,22 @@ bool FrenetPlanner::getNewReferencePoint(
   autoware_msgs::Waypoint default_target_waypoint;
   for(const auto& waypoint: reference_waypoints)
   {
+    //TODO: make method 
+    geometry_msgs::Point relative_cartesian_point =  
+    transformToRelativeCoordinate2D(current_reference_point.cartesian_point, waypoint.pose.pose);
+    double angle = std::atan2(relative_cartesian_point.y, relative_cartesian_point.x);
+    
+    //       |
+    //       | abs(angle)<PI/2
+    //-------wp-------
+    //       | 
+    //       | abs(angle)>PI/2
+    //
+    if(std::abs(angle) < M_PI/2)
+    {
+      continue;
+    }
+    
     double dx = waypoint.pose.pose.position.x - current_reference_point.cartesian_point.x;
     double dy = waypoint.pose.pose.position.y - current_reference_point.cartesian_point.y;
     double distance = std::sqrt(std::pow(dx, 2)+std::pow(dy,2));
@@ -849,7 +865,7 @@ bool FrenetPlanner::getNewReferencePoint(
     {
       reference_type = ReferenceType::Waypoint;
       reference_frenet_point = default_reference_frenet_point;
-      reference_cartesian_point = trajectory.trajectory_points.waypoints.back().pose.pose.position;
+      reference_cartesian_point = default_target_waypoint.pose.pose.position;
     }
     else
     {

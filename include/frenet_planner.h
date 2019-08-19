@@ -134,7 +134,6 @@ private:
                         const FrenetPoint& frenet_point,
                         autoware_msgs::Waypoint& waypoint);
   
-  //TODO: this implementation might habe bug
   //TODO: think better name for delta_s
   bool convertFrenetPosition2CartesianPosition(
                            const double frenet_s,
