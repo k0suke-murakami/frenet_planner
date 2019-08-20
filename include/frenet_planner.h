@@ -135,6 +135,7 @@ private:
                         autoware_msgs::Waypoint& waypoint);
   
   //TODO: think better name for delta_s
+  //TODO: improbe by changing delta_yaw(reference current or previous)
   bool convertFrenetPosition2CartesianPosition(
                            const double frenet_s,
                            const double frenet_d,
@@ -158,7 +159,6 @@ private:
     
   bool getBestTrajectory(
     const std::vector<Trajectory>& trajectories,
-    const std::vector<Point>& lane_points,
     const autoware_msgs::DetectedObjectArray& objects,
     const std::vector<autoware_msgs::Waypoint>& cropped_reference_waypoints,
     std::unique_ptr<ReferencePoint>& kept_reference_point,    
@@ -257,6 +257,10 @@ private:
   bool isTrajectoryCollisionFree(
     const std::vector<autoware_msgs::Waypoint>& trajectory_points,
     const autoware_msgs::DetectedObjectArray& objects);
+    
+  void getNearestWaypointIndex(const geometry_msgs::Point& point,
+                                    const std::vector<autoware_msgs::Waypoint>& waypoints,
+                                    size_t& nearest_waypoint_index);
 };
 
 #endif

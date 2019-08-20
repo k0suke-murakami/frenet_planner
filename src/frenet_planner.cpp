@@ -72,7 +72,7 @@ void FrenetPlanner::doPlan(const geometry_msgs::PoseStamped& in_current_pose,
   //TODO: seek more readable code
   //TODO: think the interface between the components
   std::cerr << "start process of doPlan" << std::endl;
-  FrenetPoint origin_point;
+  FrenetPoint origin_frenet_point;
   if(getOriginPointAndReferencePoint(
      in_current_pose.pose,
      in_current_twist.twist.linear.x,
@@ -80,12 +80,12 @@ void FrenetPlanner::doPlan(const geometry_msgs::PoseStamped& in_current_pose,
      in_nearest_lane_points,
      in_objects,
      kept_current_trajectory_,
-     origin_point,
+     origin_frenet_point,
      kept_current_reference_point_))
   {
     std::cerr << "log: update [current] reference point " << std::endl;
     std::vector<Trajectory> trajectories;
-    drawTrajectories(origin_point,
+    drawTrajectories(origin_frenet_point,
                     *kept_current_reference_point_,
                     in_nearest_lane_points,
                     in_reference_waypoints,
@@ -96,7 +96,6 @@ void FrenetPlanner::doPlan(const geometry_msgs::PoseStamped& in_current_pose,
     
     //TODO: is_no_potential_accident comes from getBestTrajectory's output?
     getBestTrajectory(trajectories,
-                      in_nearest_lane_points,
                       in_objects,
                       in_reference_waypoints, 
                       kept_current_reference_point_,
@@ -141,7 +140,6 @@ void FrenetPlanner::doPlan(const geometry_msgs::PoseStamped& in_current_pose,
     //get best trajectory
     bool succsessfully_get_best_trajectory =
     getBestTrajectory(trajectories,
-                      in_nearest_lane_points,
                       in_objects,
                       in_reference_waypoints, 
                       kept_next_reference_point_,
@@ -604,30 +602,73 @@ void FrenetPlanner::getNearestWaypoint(const geometry_msgs::Point& point,
   } 
 }
 
+//TODO: make method for redundant part
+void FrenetPlanner::getNearestWaypointIndex(const geometry_msgs::Point& point,
+                                    const std::vector<autoware_msgs::Waypoint>& waypoints,
+                                    size_t& nearest_waypoint_index)
+{
+  double min_dist = 99999;
+  for(size_t i = 0 ; i < waypoints.size(); i++)
+  {
+    double dx = point.x - waypoints[i].pose.pose.position.x;
+    double dy = point.y - waypoints[i].pose.pose.position.y;
+    double dist = std::sqrt(std::pow(dx, 2)+std::pow(dy, 2));
+    if(dist < min_dist)
+    {
+      min_dist = dist;
+      nearest_waypoint_index = i;
+    }
+  } 
+}
+
 
 bool FrenetPlanner::getBestTrajectory(
       const std::vector<Trajectory>& trajectories,
-      const std::vector<Point>& lane_points,
       const autoware_msgs::DetectedObjectArray& objects,
       const std::vector<autoware_msgs::Waypoint>& reference_waypoints, 
       std::unique_ptr<ReferencePoint>& kept_reference_point,
       std::unique_ptr<Trajectory>& kept_best_trajectory)
 {
+  //TODO: make it faster
+  //make subset reference wps for evaluation
+  std::cerr << "num ref wps " << reference_waypoints.size() << std::endl;
+  geometry_msgs::Point origin_cartesian_point = trajectories.front().trajectory_points.waypoints.front().pose.pose.position;
+  size_t nearest_origin_waypoint_id;
+  getNearestWaypointIndex(origin_cartesian_point,
+                     reference_waypoints,
+                     nearest_origin_waypoint_id);
+  size_t nearest_last_waypoint_id;
+  getNearestWaypointIndex(kept_reference_point->cartesian_point,
+                     reference_waypoints,
+                     nearest_last_waypoint_id);
+  std::vector<autoware_msgs::Waypoint> subset_reference_waypoints;
+  if(nearest_origin_waypoint_id>= nearest_last_waypoint_id)
+  {
+    std::cerr << "ERROR: somethinf wrong in getBestTrajectory"  << std::endl;
+    kept_reference_point = nullptr;
+    kept_best_trajectory = nullptr;
+  }
+  for(size_t i = nearest_origin_waypoint_id; i < nearest_last_waypoint_id; i++)
+  {
+    subset_reference_waypoints.push_back(reference_waypoints[i]);
+  }
+  std::cerr << "num subset ref wps " << subset_reference_waypoints.size() << std::endl;
+  
   std::vector<double> ref_waypoints_costs;
-  double sum_ref_waypoints_costs;
   std::vector<double> ref_last_waypoints_costs;
   std::vector<double> debug_last_waypoints_costs_s;
   std::vector<double> debug_last_waypoints_costs_d;
   std::vector<double> debug_last_waypoints_actual_s;
   std::vector<double> debug_last_waypoints_actual_d;
-  double sum_last_waypoints_costs;
+  double sum_ref_waypoints_costs = 0;
+  double sum_last_waypoints_costs = 0;
   for(const auto& trajectory: trajectories)
   {
     //calculate cost with reference waypoints
     double ref_waypoints_cost = 0;
-    for(size_t i = 0; i < reference_waypoints.size(); i++)
+    for(size_t i = 0; i < subset_reference_waypoints.size(); i++)
     {
-      geometry_msgs::Point reference_point = reference_waypoints[i].pose.pose.position;
+      geometry_msgs::Point reference_point = subset_reference_waypoints[i].pose.pose.position;
       
       autoware_msgs::Waypoint nearest_trajectory_point;
       getNearestWaypoint(reference_point, 
@@ -635,6 +676,10 @@ bool FrenetPlanner::getBestTrajectory(
                          nearest_trajectory_point);
       double dist = calculate2DDistace(reference_point, 
                               nearest_trajectory_point.pose.pose.position);
+      
+      // std::cerr << "ref "<< reference_point.x << " " << reference_point.y << std::endl;
+      // std::cerr << "nearest traj "<< nearest_trajectory_point.pose.pose.position.x << " " << nearest_trajectory_point.pose.pose.position.y << std::endl;
+      // std::cerr << "dist " << dist << std::endl;
       ref_waypoints_cost += dist;
     }
     ref_waypoints_costs.push_back(ref_waypoints_cost);
@@ -656,6 +701,11 @@ bool FrenetPlanner::getBestTrajectory(
       frenet_point_at_time_horizon.s_state(0) - kept_reference_point->frenet_point.s_state(0));
     debug_last_waypoints_actual_d.push_back(frenet_point_at_time_horizon.d_state(0));
     debug_last_waypoints_actual_s.push_back(frenet_point_at_time_horizon.s_state(0));
+    std::cerr << "diff s " <<  frenet_point_at_time_horizon.s_state(0) - kept_reference_point->frenet_point.s_state(0)<< std::endl;
+    // std::cerr << "diff sv " <<  frenet_point_at_time_horizon.s_state(1) - kept_reference_point->frenet_point.s_state(1)<< std::endl;
+    // std::cerr << "diff d " <<  frenet_point_at_time_horizon.d_state(0) - kept_reference_point->frenet_point.d_state(0)<< std::endl;
+    std::cerr << "total last wp diff " <<  ref_last_waypoint_cost<< std::endl;
+    std::cerr << "total wps diff " <<  ref_waypoints_cost<< std::endl;
   }
   
   std::vector<double> costs;
@@ -669,9 +719,9 @@ bool FrenetPlanner::getBestTrajectory(
     costs.push_back(sum_cost);
     debug_norm_ref_wps_costs.push_back(normalized_ref_waypoints_cost);
     debug_norm_ref_last_wp_costs.push_back(normalized_ref_last_waypoints_cost);
-    // std::cerr << "norm_ref_wps " << normalized_ref_waypoints_cost
-    //           << "norm ref last "<< normalized_ref_last_waypoints_cost
-    //           << "sum "<< sum_cost<< std::endl;
+    std::cerr << "norm_ref_wps " << normalized_ref_waypoints_cost
+              << "norm ref last "<< normalized_ref_last_waypoints_cost
+              << "sum "<< sum_cost<< std::endl;
   }
   //arg sort 
   // https://stackoverflow.com/questions/1577475/c-sorting-and-keeping-track-of-indexes/12399290#12399290
