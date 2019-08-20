@@ -157,7 +157,7 @@ private:
         FrenetPoint& frenet_point);
   
     
-  bool getBestTrajectory(
+  bool selectBestTrajectory(
     const std::vector<Trajectory>& trajectories,
     const autoware_msgs::DetectedObjectArray& objects,
     const std::vector<autoware_msgs::Waypoint>& cropped_reference_waypoints,
@@ -180,7 +180,7 @@ private:
         
         
   // pick up reference point from reference waypoints
-  bool getNewReferencePoint(
+  bool generateNewReferencePoint(
        const ReferencePoint& origin_cartesian_point,
        const double origin_linear_velocity,
        const std::vector<autoware_msgs::Waypoint>& waypoints,
@@ -188,7 +188,7 @@ private:
        const autoware_msgs::DetectedObjectArray& objects,
        ReferencePoint& reference_point);
   
-  bool getInitialReferencePoint(
+  bool generateInitialReferencePoint(
       const geometry_msgs::Point& origin_cartesian_point,
       const double origin_linear_velocity,  
       const std::vector<autoware_msgs::Waypoint>& reference_waypoints,
@@ -233,11 +233,11 @@ private:
     const std::vector<autoware_msgs::Waypoint>& reference_waypoints,
     const std::vector<Point>& lane_points,
     const autoware_msgs::DetectedObjectArray& objects,
-    std::unique_ptr<Trajectory>& kept_current_trajectory,  
     FrenetPoint& origin_frenet_point,
-    std::unique_ptr<ReferencePoint>& current_reference_point);
+    std::unique_ptr<ReferencePoint>& current_reference_point,
+    std::unique_ptr<Trajectory>& kept_current_trajectory);
     
-  bool getNextReferencePoint(
+  bool getNextOriginPointAndReferencePoint(
     const geometry_msgs::Pose& ego_pose,
     const double origin_linear_velocity,    
     const std::vector<autoware_msgs::Waypoint>& reference_waypoints,
