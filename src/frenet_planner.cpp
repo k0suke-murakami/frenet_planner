@@ -891,6 +891,7 @@ bool FrenetPlanner::getNewReferencePoint(
     default_target_waypoint.twist.twist.linear.x,
     lane_points,
     default_reference_frenet_point);
+  std::cerr << "defalut target velocity " << default_target_waypoint.twist.twist.linear.x << std::endl;
   
   
   //TODO: change the behavior here based on current_reference_point's reference type
@@ -918,7 +919,15 @@ bool FrenetPlanner::getNewReferencePoint(
                               collision_waypoint_index);
     if(is_collison_free)
     {
-      reference_type = ReferenceType::Waypoint;
+      if(default_target_waypoint.twist.twist.linear.x < 0.01)
+      {
+        reference_type = ReferenceType::StopLine;
+      }
+      else
+      {
+        reference_type = ReferenceType::Waypoint;
+      }
+      
       reference_frenet_point = default_reference_frenet_point;
       reference_cartesian_point = default_target_waypoint.pose.pose.position;
     }
@@ -1031,6 +1040,19 @@ bool FrenetPlanner::getNewReferencePoint(
     reference_point.longutudinal_sampling_resolution = 0.01;
     reference_point.time_horizon = 10.0;
     reference_point.time_horizon_offset = 4.0;
+    reference_point.time_horizon_sampling_resolution = 1.0;
+    reference_point.reference_type = reference_type;
+  }
+  else if(reference_type == ReferenceType::StopLine)
+  {
+    reference_point.frenet_point = reference_frenet_point;
+    reference_point.cartesian_point = reference_cartesian_point;
+    reference_point.lateral_offset = 0.0;
+    reference_point.lateral_sampling_resolution =0.01;
+    reference_point.longutudinal_offset = 0.0;
+    reference_point.longutudinal_sampling_resolution = 0.01;
+    reference_point.time_horizon = 12.0;
+    reference_point.time_horizon_offset = 8.0;
     reference_point.time_horizon_sampling_resolution = 1.0;
     reference_point.reference_type = reference_type;
   }
