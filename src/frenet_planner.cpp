@@ -631,7 +631,7 @@ bool FrenetPlanner::getBestTrajectory(
 {
   //TODO: make it faster
   //make subset reference wps for evaluation
-  std::cerr << "num ref wps " << reference_waypoints.size() << std::endl;
+  // std::cerr << "num ref wps " << reference_waypoints.size() << std::endl;
   geometry_msgs::Point origin_cartesian_point = trajectories.front().trajectory_points.waypoints.front().pose.pose.position;
   size_t nearest_origin_waypoint_id;
   getNearestWaypointIndex(origin_cartesian_point,
@@ -652,7 +652,7 @@ bool FrenetPlanner::getBestTrajectory(
   {
     subset_reference_waypoints.push_back(reference_waypoints[i]);
   }
-  std::cerr << "num subset ref wps " << subset_reference_waypoints.size() << std::endl;
+  // std::cerr << "num subset ref wps " << subset_reference_waypoints.size() << std::endl;
   
   std::vector<double> ref_waypoints_costs;
   std::vector<double> ref_last_waypoints_costs;
@@ -701,11 +701,11 @@ bool FrenetPlanner::getBestTrajectory(
       frenet_point_at_time_horizon.s_state(0) - kept_reference_point->frenet_point.s_state(0));
     debug_last_waypoints_actual_d.push_back(frenet_point_at_time_horizon.d_state(0));
     debug_last_waypoints_actual_s.push_back(frenet_point_at_time_horizon.s_state(0));
-    std::cerr << "diff s " <<  frenet_point_at_time_horizon.s_state(0) - kept_reference_point->frenet_point.s_state(0)<< std::endl;
+    // std::cerr << "diff s " <<  frenet_point_at_time_horizon.s_state(0) - kept_reference_point->frenet_point.s_state(0)<< std::endl;
     // std::cerr << "diff sv " <<  frenet_point_at_time_horizon.s_state(1) - kept_reference_point->frenet_point.s_state(1)<< std::endl;
     // std::cerr << "diff d " <<  frenet_point_at_time_horizon.d_state(0) - kept_reference_point->frenet_point.d_state(0)<< std::endl;
-    std::cerr << "total last wp diff " <<  ref_last_waypoint_cost<< std::endl;
-    std::cerr << "total wps diff " <<  ref_waypoints_cost<< std::endl;
+    // std::cerr << "total last wp diff " <<  ref_last_waypoint_cost<< std::endl;
+    // std::cerr << "total wps diff " <<  ref_waypoints_cost<< std::endl;
   }
   
   std::vector<double> costs;
@@ -719,9 +719,9 @@ bool FrenetPlanner::getBestTrajectory(
     costs.push_back(sum_cost);
     debug_norm_ref_wps_costs.push_back(normalized_ref_waypoints_cost);
     debug_norm_ref_last_wp_costs.push_back(normalized_ref_last_waypoints_cost);
-    std::cerr << "norm_ref_wps " << normalized_ref_waypoints_cost
-              << "norm ref last "<< normalized_ref_last_waypoints_cost
-              << "sum "<< sum_cost<< std::endl;
+    // std::cerr << "norm_ref_wps " << normalized_ref_waypoints_cost
+    //           << "norm ref last "<< normalized_ref_last_waypoints_cost
+    //           << "sum "<< sum_cost<< std::endl;
   }
   //arg sort 
   // https://stackoverflow.com/questions/1577475/c-sorting-and-keeping-track-of-indexes/12399290#12399290
@@ -730,8 +730,8 @@ bool FrenetPlanner::getBestTrajectory(
   std::sort(indexes.begin(), indexes.end(), [&costs](const size_t &a, const size_t &b)
                                                { return costs[a] < costs[b];});
   
-  std::cerr << "target s " << kept_reference_point->frenet_point.s_state(0) << std::endl;
-  std::cerr << "target d " << kept_reference_point->frenet_point.d_state(0) << std::endl;
+  // std::cerr << "target s " << kept_reference_point->frenet_point.s_state(0) << std::endl;
+  // std::cerr << "target d " << kept_reference_point->frenet_point.d_state(0) << std::endl;
   // std::cerr << "last point s " << ->frenet_point.d_state(0) << std::endl;
   // std::cerr << "last point d " << ->frenet_point.s_state(0) << std::endl;
   bool has_got_best_trajectory = false;
@@ -837,6 +837,11 @@ bool FrenetPlanner::getNewReferencePoint(
   const autoware_msgs::DetectedObjectArray& objects,
   ReferencePoint& reference_point)
 {
+  //TODO: assuming current_reference_point is terminal point in global waypoint
+  if(current_reference_point.reference_type == ReferenceType::StopLine)
+  {
+    return false;
+  }
   std::cerr << "calling getNewReferencePoint for next_reference_point" << std::endl;
   std::cerr << "----------------------------------------------current reference type " 
   << static_cast<int>(current_reference_point.reference_type) << std::endl;
@@ -1043,6 +1048,7 @@ bool FrenetPlanner::getNewReferencePoint(
     reference_point.time_horizon_sampling_resolution = 2.0;
     reference_point.reference_type = ReferenceType::Unknown;
   }
+  return true;
 }
 
 //TODO: not considering the size of waypoints
@@ -1605,15 +1611,19 @@ bool FrenetPlanner::getNextReferencePoint(
     
     //make initinal target point
     ReferencePoint next_point;
-    getNewReferencePoint(
-      *kept_current_reference_point,
-      origin_linear_velocity,
-      reference_waypoints,
-      lane_points,
-      objects,
-      next_point);
-    kept_next_reference_point.reset(new ReferencePoint(next_point));
-    is_new_reference_point = true;
+    is_new_reference_point = 
+       getNewReferencePoint(
+                          *kept_current_reference_point,
+                          origin_linear_velocity,
+                          reference_waypoints,
+                          lane_points,
+                          objects,
+                          next_point);
+    if(is_new_reference_point)
+    {
+      kept_next_reference_point.reset(new ReferencePoint(next_point));
+    }
+    // is_new_reference_point = ;
   }
   else
   {
