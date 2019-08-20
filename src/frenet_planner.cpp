@@ -63,7 +63,7 @@ void FrenetPlanner::doPlan(const geometry_msgs::PoseStamped& in_current_pose,
               const geometry_msgs::TwistStamped& in_current_twist,
               const std::vector<Point>& in_nearest_lane_points,
               const std::vector<autoware_msgs::Waypoint>& in_reference_waypoints,
-              const autoware_msgs::DetectedObjectArray& in_objects,
+              const std::unique_ptr<autoware_msgs::DetectedObjectArray>& in_objects_ptr,
               const geometry_msgs::TransformStamped& in_wp2map_tf,
               autoware_msgs::Lane& out_trajectory,
               std::vector<autoware_msgs::Lane>& out_debug_trajectories,
@@ -78,7 +78,7 @@ void FrenetPlanner::doPlan(const geometry_msgs::PoseStamped& in_current_pose,
      in_current_twist.twist.linear.x,
      in_reference_waypoints,
      in_nearest_lane_points,
-     in_objects,
+     in_objects_ptr,
      origin_frenet_point,
      kept_current_reference_point_,
      kept_current_trajectory_))
@@ -96,7 +96,7 @@ void FrenetPlanner::doPlan(const geometry_msgs::PoseStamped& in_current_pose,
     
     //TODO: is_no_potential_accident comes from getBestTrajectory's output?
     selectBestTrajectory(trajectories,
-                      in_objects,
+                      in_objects_ptr,
                       in_reference_waypoints, 
                       kept_current_reference_point_,
                       kept_current_trajectory_);
@@ -118,7 +118,7 @@ void FrenetPlanner::doPlan(const geometry_msgs::PoseStamped& in_current_pose,
                         kept_current_trajectory_->trajectory_points.waypoints.back().twist.twist.linear.x,
                         in_reference_waypoints,
                         in_nearest_lane_points,
-                        in_objects,
+                        in_objects_ptr,
                         kept_current_trajectory_,
                         kept_next_trajectory_,
                         kept_current_reference_point_,
@@ -140,7 +140,7 @@ void FrenetPlanner::doPlan(const geometry_msgs::PoseStamped& in_current_pose,
     //get best trajectory
     bool succsessfully_get_best_trajectory =
     selectBestTrajectory(trajectories,
-                      in_objects,
+                      in_objects_ptr,
                       in_reference_waypoints, 
                       kept_next_reference_point_,
                       kept_next_trajectory_);
@@ -624,7 +624,7 @@ void FrenetPlanner::getNearestWaypointIndex(const geometry_msgs::Point& point,
 
 bool FrenetPlanner::selectBestTrajectory(
       const std::vector<Trajectory>& trajectories,
-      const autoware_msgs::DetectedObjectArray& objects,
+      const std::unique_ptr<autoware_msgs::DetectedObjectArray>& objects_ptr,
       const std::vector<autoware_msgs::Waypoint>& reference_waypoints, 
       std::unique_ptr<ReferencePoint>& kept_reference_point,
       std::unique_ptr<Trajectory>& kept_best_trajectory)
@@ -745,9 +745,15 @@ bool FrenetPlanner::selectBestTrajectory(
               << " las d "<< debug_last_waypoints_costs_d[index]
               << " act d "<< debug_last_waypoints_actual_d[index]
               << " sum "<< costs[index]<< std::endl;
-    if(isTrajectoryCollisionFree(
-      trajectories[index].trajectory_points.waypoints,
-      objects))
+    bool is_collision_free = true;
+    if(objects_ptr)
+    {
+      is_collision_free = isTrajectoryCollisionFree(
+                            trajectories[index].trajectory_points.waypoints,
+                            *objects_ptr);
+    }
+    
+    if(is_collision_free)
     {
       has_got_best_trajectory = true;
       kept_best_trajectory.reset(new Trajectory(trajectories[index]));
@@ -834,7 +840,7 @@ bool FrenetPlanner::generateNewReferencePoint(
   const double origin_linear_velocity,  
   const std::vector<autoware_msgs::Waypoint>& reference_waypoints,
   const std::vector<Point>& lane_points,
-  const autoware_msgs::DetectedObjectArray& objects,
+  const std::unique_ptr<autoware_msgs::DetectedObjectArray>& objects_ptr,
   ReferencePoint& reference_point)
 {
   //TODO: assuming current_reference_point is terminal point in global waypoint
@@ -913,11 +919,16 @@ bool FrenetPlanner::generateNewReferencePoint(
                   dt_for_sampling_points_,
                   trajectory);
     size_t collision_waypoint_index;
-    bool is_collison_free = isTrajectoryCollisionFree(
-                              trajectory.trajectory_points.waypoints,
-                              objects,
-                              collision_waypoint_index);
-    if(is_collison_free)
+    bool is_collision_free = true;
+    if(objects_ptr)
+    {
+      is_collision_free = isTrajectoryCollisionFree(
+                                trajectory.trajectory_points.waypoints,
+                                *objects_ptr,
+                                collision_waypoint_index);
+    }
+    
+    if(is_collision_free)
     {
       if(default_target_waypoint.twist.twist.linear.x < 0.01)
       {
@@ -976,11 +987,16 @@ bool FrenetPlanner::generateNewReferencePoint(
                     dt_for_sampling_points_,
                     trajectory);
       size_t collision_waypoint_index;
-      bool is_collison_free = isTrajectoryCollisionFree(
-                                trajectory.trajectory_points.waypoints,
-                                objects,
-                                collision_waypoint_index);
-      if(is_collison_free)
+      bool is_collision_free = true;
+      if(objects_ptr)
+      {
+        is_collision_free = isTrajectoryCollisionFree(
+                                  trajectory.trajectory_points.waypoints,
+                                  *objects_ptr,
+                                  collision_waypoint_index);
+      }
+      
+      if(is_collision_free)
       {
         std::cerr << "lateral offset " << lateral_offset << std::endl;
         reference_type = ReferenceType::AvoidingPoint;
@@ -1130,7 +1146,7 @@ bool FrenetPlanner::updateReferencePoint(
     const std::unique_ptr<Trajectory>& kept_trajectory,
     const std::vector<autoware_msgs::Waypoint>& local_reference_waypoints,
     const std::vector<Point>& lane_points,    
-    const autoware_msgs::DetectedObjectArray& objects,
+    const std::unique_ptr<autoware_msgs::DetectedObjectArray>& objects_ptr,
     const std::unique_ptr<ReferencePoint>& kept_reference_point,
     ReferencePoint& reference_point)
 {
@@ -1166,14 +1182,17 @@ bool FrenetPlanner::updateReferencePoint(
   kept_trajectory->trajectory_points.waypoints;
   for(size_t i = 0; i < current_trajectory_points.size(); i++)
   {
-    if(isCollision(current_trajectory_points[i], objects))
+    bool is_collision = true;
+    is_collision = isCollision(current_trajectory_points[i], *objects_ptr);
+    
+    if(is_collision)
     {
       reference_waypoint = current_trajectory_points[i];
       found_new_reference_point = true;
       reference_point.reference_type = ReferenceType::Obstacle;
       std::cerr << "Detect collision while updating reference point!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::endl;
       break;
-    }
+    } 
     // find closest waypoint with flagged waypoint
     if(found_flagged_waypoint)
     {
@@ -1369,7 +1388,7 @@ bool FrenetPlanner::getOriginPointAndReferencePoint(
     const double ego_linear_velocity,
     const std::vector<autoware_msgs::Waypoint>& reference_waypoints,    
     const std::vector<Point>& lane_points,
-    const autoware_msgs::DetectedObjectArray& objects,
+    const std::unique_ptr<autoware_msgs::DetectedObjectArray>& objects_ptr,
     FrenetPoint& origin_frenet_point,
     std::unique_ptr<ReferencePoint>& current_reference_point,
     std::unique_ptr<Trajectory>& kept_current_trajectory)
@@ -1393,7 +1412,7 @@ bool FrenetPlanner::getOriginPointAndReferencePoint(
     if(updateReferencePoint(kept_current_trajectory_,
                       reference_waypoints,
                       lane_points,
-                      objects,
+                      objects_ptr,
                       current_reference_point,
                       target_point))
     {
@@ -1428,7 +1447,7 @@ bool FrenetPlanner::getNextOriginPointAndReferencePoint(
     const double origin_linear_velocity,
     const std::vector<autoware_msgs::Waypoint>& reference_waypoints,
     const std::vector<Point>& lane_points,
-    const autoware_msgs::DetectedObjectArray& objects,
+    const std::unique_ptr<autoware_msgs::DetectedObjectArray>& objects_ptr,
     std::unique_ptr<Trajectory>& kept_current_trajectory,
     std::unique_ptr<Trajectory>& kept_next_trajectory,
     std::unique_ptr<ReferencePoint>& kept_current_reference_point,
@@ -1609,7 +1628,7 @@ bool FrenetPlanner::getNextOriginPointAndReferencePoint(
     if(updateReferencePoint(kept_next_trajectory,
                       reference_waypoints,
                       lane_points,
-                      objects,
+                      objects_ptr,
                       kept_next_reference_point,
                       next_point))
     {
@@ -1639,7 +1658,7 @@ bool FrenetPlanner::getNextOriginPointAndReferencePoint(
                           origin_linear_velocity,
                           reference_waypoints,
                           lane_points,
-                          objects,
+                          objects_ptr,
                           next_point);
     if(is_new_reference_point)
     {

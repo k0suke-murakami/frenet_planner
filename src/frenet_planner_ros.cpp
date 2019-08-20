@@ -150,15 +150,10 @@ void FrenetPlannerROS::timerCallback(const ros::TimerEvent &e)
   {
     std::cerr << "waypoints not arrive" << std::endl;
   }
-  if(!in_objects_ptr_)
-  {
-    std::cerr << "objects not arrive" << std::endl;
-  }
   
   if(in_pose_ptr_ && 
      in_twist_ptr_ && 
-     in_waypoints_ptr_ && 
-     in_objects_ptr_) 
+     in_waypoints_ptr_) 
   { 
     // 1. 現在日時を取得
     std::chrono::high_resolution_clock::time_point begin = std::chrono::high_resolution_clock::now();
@@ -204,7 +199,7 @@ void FrenetPlannerROS::timerCallback(const ros::TimerEvent &e)
       local_center_points = nearest_lane_point.points;
     }
     
-    
+    //TODO: make it better by using time-series data
     //make local waypoints based on current_pose
     std::vector<autoware_msgs::Waypoint> local_reference_waypoints;
     double min_dist = 99999;
@@ -235,7 +230,7 @@ void FrenetPlannerROS::timerCallback(const ros::TimerEvent &e)
                                 *in_twist_ptr_, 
                                 local_center_points, 
                                 local_reference_waypoints,
-                                *in_objects_ptr_,
+                                in_objects_ptr_,
                                 wp2gridmap_tf_,
                                 out_trajectory,
                                 out_debug_trajectories,
