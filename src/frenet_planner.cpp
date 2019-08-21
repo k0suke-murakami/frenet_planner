@@ -1182,8 +1182,11 @@ bool FrenetPlanner::updateReferencePoint(
   kept_trajectory->trajectory_points.waypoints;
   for(size_t i = 0; i < current_trajectory_points.size(); i++)
   {
-    bool is_collision = true;
-    is_collision = isCollision(current_trajectory_points[i], *objects_ptr);
+    bool is_collision = false;
+    if(objects_ptr)
+    {
+      is_collision = isCollision(current_trajectory_points[i], *objects_ptr);
+    }
     
     if(is_collision)
     {
