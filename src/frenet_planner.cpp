@@ -1629,10 +1629,9 @@ bool FrenetPlanner::getNextOriginPointAndReferencePoint(
     std::cerr << "next reference nullptr"  << std::endl;
   }
 
-  
+  //update or generate or nothing especially for next reference point
   double distance = calculate2DDistace(ego_pose.position,
                                        kept_current_reference_point->cartesian_point);
-  
   bool is_new_reference_point = false;
   if(kept_next_reference_point)
   {
@@ -1654,15 +1653,6 @@ bool FrenetPlanner::getNextOriginPointAndReferencePoint(
   else if(distance < 10 && !kept_next_reference_point)
   {
     std::cerr << "start generating new reference point" << std::endl;
-    //TODO: keep this bracket for stopline 
-    // double distance_between_last_wp_and_target = 
-    // calculate2DDistace(reference_waypoints.back().pose.pose.position,
-    //                    kept_current_reference_point->cartesian_point);
-    // if(distance_between_last_wp_and_target < 0.1)
-    // {
-    //   return false;
-    // }
-    
     //make initinal target point
     ReferencePoint next_point;
     is_new_reference_point = 
