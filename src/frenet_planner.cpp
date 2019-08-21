@@ -950,9 +950,9 @@ bool FrenetPlanner::generateNewReferencePoint(
       
       size_t reference_waypoint_index = 0;
       //TODO: use of param/variable
-      if(collision_waypoint_index >= 3)
+      if(collision_waypoint_index >= 6)
       {
-        reference_waypoint_index = collision_waypoint_index - 3;
+        reference_waypoint_index = collision_waypoint_index - 6;
       }
       
       geometry_msgs::Point reference_point = 
@@ -1522,10 +1522,15 @@ bool FrenetPlanner::getNextOriginPointAndReferencePoint(
       //
       if(std::abs(angle) > M_PI/2)
       {
-        kept_current_trajectory->trajectory_points.waypoints.erase(
-            kept_current_trajectory->trajectory_points.waypoints.begin());
-        kept_current_trajectory->frenet_trajectory_points.erase(
-          kept_current_trajectory->frenet_trajectory_points.begin());
+        //TODO: not good implementation. this is because pure pursuit would die if 0 trajectory is passed
+        if(kept_current_trajectory->frenet_trajectory_points.size() > 1)
+        {
+          kept_current_trajectory->trajectory_points.waypoints.erase(
+              kept_current_trajectory->trajectory_points.waypoints.begin());
+          kept_current_trajectory->frenet_trajectory_points.erase(
+            kept_current_trajectory->frenet_trajectory_points.begin());
+          
+        }
       }
     }
     std::cerr << "after current crop "<< kept_current_trajectory->trajectory_points.waypoints.size()  << std::endl;
