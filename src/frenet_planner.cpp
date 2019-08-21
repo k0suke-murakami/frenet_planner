@@ -49,7 +49,8 @@ geometry_msgs::Point transformToRelativeCoordinate2D(const geometry_msgs::Point 
 //does not consider z axis information
 //does not consider time axis motion of ego vehicle
 FrenetPlanner::FrenetPlanner():
-dt_for_sampling_points_(0.5)
+dt_for_sampling_points_(0.5),
+initial_linear_velocity_m_s_(0.6)
 {
 
 }
@@ -91,8 +92,6 @@ void FrenetPlanner::doPlan(const geometry_msgs::PoseStamped& in_current_pose,
                     in_reference_waypoints,
                     trajectories,
                     out_debug_trajectories);
-    // std::cerr << "after draw trajectories for current  point" << std::endl;
-    // std::cerr << "num traj " << trajectories.size() << std::endl;
     
     //TODO: is_no_potential_accident comes from getBestTrajectory's output?
     selectBestTrajectory(trajectories,
@@ -644,6 +643,8 @@ bool FrenetPlanner::selectBestTrajectory(
   std::vector<autoware_msgs::Waypoint> subset_reference_waypoints;
   if(nearest_origin_waypoint_id>= nearest_last_waypoint_id)
   {
+    std::cerr << "nearest origin wp id " << nearest_origin_waypoint_id << std::endl;
+    std::cerr << "nearest last wp id " << nearest_last_waypoint_id << std::endl;  
     std::cerr << "ERROR: somethinf wrong in getBestTrajectory"  << std::endl;
     kept_reference_point = nullptr;
     kept_best_trajectory = nullptr;
@@ -1426,9 +1427,13 @@ bool FrenetPlanner::getOriginPointAndReferencePoint(
   else
   {//initialize when current_reference_point is nullptr
     FrenetPoint frenet_point;
+    autoware_msgs::Waypoint nearest_waypoint;
+    getNearestWaypoint(ego_pose.position, 
+                       reference_waypoints,
+                       nearest_waypoint);
     convertWaypoint2FrenetPoint(
-      ego_pose.position,
-      ego_linear_velocity,
+      nearest_waypoint.pose.pose.position,
+      initial_linear_velocity_m_s_,
       lane_points,
       frenet_point);
     origin_frenet_point = frenet_point;

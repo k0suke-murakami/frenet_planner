@@ -96,6 +96,7 @@ public:
   
 private:
   double dt_for_sampling_points_;
+  double initial_linear_velocity_m_s_;
   
   // TODO: think better name previous_best_trajectoy?
   std::unique_ptr<Trajectory> kept_current_trajectory_;
