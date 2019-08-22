@@ -105,6 +105,7 @@ private:
   double dt_for_sampling_points_;
   double initial_velocity_m_s_;
   double velcity_before_obstalcle_m_s_;
+  double distance_before_obstalcle_;
   
   // TODO: think better name previous_best_trajectoy?
   std::unique_ptr<Trajectory> kept_current_trajectory_;

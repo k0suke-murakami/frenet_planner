@@ -51,7 +51,8 @@ geometry_msgs::Point transformToRelativeCoordinate2D(const geometry_msgs::Point 
 FrenetPlanner::FrenetPlanner():
 dt_for_sampling_points_(0.5),
 initial_velocity_m_s_(0.6),
-velcity_before_obstalcle_m_s_(0.3)
+velcity_before_obstalcle_m_s_(0.3),
+distance_before_obstalcle_(6.0)
 {
 }
 
@@ -643,9 +644,12 @@ bool FrenetPlanner::selectBestTrajectory(
   std::vector<autoware_msgs::Waypoint> subset_reference_waypoints;
   if(nearest_origin_waypoint_id>= nearest_last_waypoint_id)
   {
+    //TODO: extremely bad practice; fix in v0.4
+    // generate emergency stop waypoint?
     std::cerr << "nearest origin wp id " << nearest_origin_waypoint_id << std::endl;
     std::cerr << "nearest last wp id " << nearest_last_waypoint_id << std::endl;  
-    std::cerr << "ERROR: somethinf wrong in getBestTrajectory"  << std::endl;
+    std::cerr << "ERROR: Could not handle this error in v0.3 getBestTrajectory"  << std::endl;
+    std::cerr << "Recommend to lower distance_before_obstalce_"  << std::endl;
     kept_reference_point = nullptr;
     kept_best_trajectory = nullptr;
   }
@@ -898,7 +902,6 @@ bool FrenetPlanner::generateNewReferencePoint(
     default_target_waypoint.twist.twist.linear.x,
     lane_points,
     default_reference_frenet_point);
-  std::cerr << "defalut target velocity " << default_target_waypoint.twist.twist.linear.x << std::endl;
   
   
   //TODO: change the behavior here based on current_reference_point's reference type
@@ -955,30 +958,46 @@ bool FrenetPlanner::generateNewReferencePoint(
       // collision is detected
       std::cerr << "Put stop at collision point inside getNewReferencePoint " << std::endl;
       
-      size_t reference_waypoint_index = 0;
-      //TODO: use of param/variable
-      if(collision_waypoint_index >= 6)
+      double min_dist = 99999;
+      geometry_msgs::Point collision_point = trajectory.trajectory_points.waypoints[collision_waypoint_index].pose.pose.position;
+      std::vector<autoware_msgs::Waypoint> waypoints = trajectory.trajectory_points.waypoints;
+      geometry_msgs::Point tmp_reference_cartesian_point;
+      bool has_got_reference_cartesian_point = false;
+      for(size_t i = 0; i < collision_waypoint_index; i++)
       {
-        reference_waypoint_index = collision_waypoint_index - 6;
+        double distance = calculate2DDistace(collision_point, waypoints[i].pose.pose.position);
+        if(distance < min_dist && distance > distance_before_obstalcle_)
+        {
+          min_dist = distance;
+          tmp_reference_cartesian_point = waypoints[i].pose.pose.position;
+          has_got_reference_cartesian_point = true;
+        }
       }
-      std::cerr << "collision wp index " << collision_waypoint_index << std::endl;
-      std::cerr << "reference point index !!!!!---------------------------------------------------------- " << reference_waypoint_index << std::endl;
-      geometry_msgs::Point reference_point = 
-        trajectory.trajectory_points.waypoints[reference_waypoint_index].pose.pose.position;  
+      if(!has_got_reference_cartesian_point)
+      {
+        std::cerr << "could not find distance_before_obstacle--------------------------------------"  << std::endl;
+        tmp_reference_cartesian_point = waypoints.front().pose.pose.position;
+      }
+      else
+      {
+        std::cerr << "min dist " << min_dist << std::endl;
+        std::cerr << "Did find distance_before_obst!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1"  << std::endl;
+      }
+      
       convertWaypoint2FrenetPoint(
-        reference_point,
+        tmp_reference_cartesian_point,
         velcity_before_obstalcle_m_s_,
         lane_points,
         reference_frenet_point);
       reference_type_info.type = ReferenceType::Obstacle;
       reference_type_info.referencing_object_id = collision_object_id;
       reference_type_info.referencing_object_index = collision_object_index;
-      reference_cartesian_point = reference_point;
+      reference_cartesian_point = tmp_reference_cartesian_point;
       reference_frenet_point = reference_frenet_point;
     }
   }
   else
-  {
+  {//search for avoiding point
     const double lateral_max_offset = 7.0;
     const double lateral_sampling_resolution = 1.0;
     bool has_got_collision_free_trajectory = false;
@@ -1729,9 +1748,8 @@ bool FrenetPlanner::getNextOriginPointAndReferencePoint(
        objects_ptr->objects[collision_object_index].pose.position;
     double distance = calculate2DDistace(collsion_object_point, 
                                          kept_next_reference_point->cartesian_point);
-    //TODO:  use param/variable
-    double distance_to_obstacle = 6;
-    if(distance < distance_to_obstacle)
+    
+    if(distance < distance_before_obstalcle_)
     {
       double min_distance = 99999;
       size_t reference_point_index = 0;
@@ -1742,8 +1760,7 @@ bool FrenetPlanner::getNextOriginPointAndReferencePoint(
       {
         double tmp_distance = calculate2DDistace(waypoints[i].pose.pose.position,
                                                  collsion_object_point); 
-        //TODO: use param/variable
-        if(tmp_distance < min_distance && tmp_distance > distance_to_obstacle)
+        if(tmp_distance < min_distance && tmp_distance > distance_before_obstalcle_)
         {
           min_distance = tmp_distance;
           reference_point_index = i;
@@ -1752,22 +1769,24 @@ bool FrenetPlanner::getNextOriginPointAndReferencePoint(
       }
       if(!found_reference_point)
       {
-        std::cerr << "ERROR: could not find better next reference point; in getNextOriginPointAndReferencePoint"<< std::endl;
+        std::cerr << "WARNING: could not find better next reference point; in getNextOriginPointAndReferencePoint"<< std::endl;
       }
       else
       {
-        FrenetPoint tmp_frenet_point = kept_current_trajectory->frenet_trajectory_points[reference_point_index];
-        tmp_frenet_point.s_state(1) = velcity_before_obstalcle_m_s_;
-        kept_next_reference_point->frenet_point = tmp_frenet_point;
-        kept_next_reference_point->cartesian_point = waypoints[reference_point_index].pose.pose.position;
-        size_t current_trajectory_size = kept_current_trajectory->frenet_trajectory_points.size();
-        for(size_t i = reference_point_index; i < current_trajectory_size; i++)
-        {
-          kept_current_trajectory->trajectory_points.waypoints.erase(
-              kept_current_trajectory->trajectory_points.waypoints.end());
-          kept_current_trajectory->frenet_trajectory_points.erase(
-            kept_current_trajectory->frenet_trajectory_points.end());
-        }
+        std::cerr << "dif find appropriate next reference point from current trajecotory"  << std::endl;
+        std::cerr << "min_dist " << min_distance << std::endl;
+      }
+      FrenetPoint tmp_frenet_point = kept_current_trajectory->frenet_trajectory_points[reference_point_index];
+      tmp_frenet_point.s_state(1) = velcity_before_obstalcle_m_s_;
+      kept_next_reference_point->frenet_point = tmp_frenet_point;
+      kept_next_reference_point->cartesian_point = waypoints[reference_point_index].pose.pose.position;
+      size_t current_trajectory_size = kept_current_trajectory->frenet_trajectory_points.size();
+      for(size_t i = reference_point_index; i < current_trajectory_size; i++)
+      {
+        kept_current_trajectory->trajectory_points.waypoints.erase(
+            kept_current_trajectory->trajectory_points.waypoints.end());
+        kept_current_trajectory->frenet_trajectory_points.erase(
+          kept_current_trajectory->frenet_trajectory_points.end());
       }
     }
   }
@@ -1786,7 +1805,7 @@ bool FrenetPlanner::getNextOriginPointAndReferencePoint(
   if(kept_next_reference_point->frenet_point.s_state(0) <
      kept_current_reference_point->frenet_point.s_state(0))
   {
-    std::cerr << "Error: next_reference_point is behind current_reference_point; getNextReferencePoint" << std::endl;
+    std::cerr << "WARNING: next_reference_point is behind current_reference_point; getNextReferencePoint" << std::endl;
   }
   
   
