@@ -1716,7 +1716,6 @@ bool FrenetPlanner::getNextOriginPointAndReferencePoint(
   
   if(!is_new_reference_point)
   {
-    // next_origin_point = kept_current_trajectory->frenet_trajectory_points.back();
     return is_new_reference_point;
   }
   
@@ -1776,24 +1775,26 @@ bool FrenetPlanner::getNextOriginPointAndReferencePoint(
   }
   
   
-  //offset only for stopping waypoint
-  //validity check for current_reference_point 
-  //if new_reference_point is too close to converge to 0
-  next_origin_point = kept_current_trajectory->frenet_trajectory_points.back();
   //TODO: non-holnomic at low velocity; v_0.4
   // v0.3 something like below
   //if(next_origin_point.s_state(1) < 0.1 && ReferenceType == ReferenceType::Obstacle) 
+  next_origin_point = kept_current_trajectory->frenet_trajectory_points.back();
   if(next_origin_point.s_state(1) < 0.1)
   {
     next_origin_point.s_state(1) += 0.3;
   } 
+  
   //TODO: validation that make sure next_reference_point.s_p > current_reference_point.s_p
   if(kept_next_reference_point->frenet_point.s_state(0) <
      kept_current_reference_point->frenet_point.s_state(0))
   {
     std::cerr << "Error: next_reference_point is behind current_reference_point; getNextReferencePoint" << std::endl;
   }
-  std::cerr << "s v " << kept_next_reference_point->frenet_point.s_state(1) << std::endl;
+  
+  
+  //offset only for stopping waypoint
+  //validity check for current_reference_point 
+  //if new_reference_point is too close to converge to 0
   if(kept_next_reference_point->frenet_point.s_state(1) < 0.01)
   {
     Trajectory trajectory;
@@ -1804,6 +1805,9 @@ bool FrenetPlanner::getNextOriginPointAndReferencePoint(
                   kept_next_reference_point->time_horizon,
                   dt_for_sampling_points_,
                   trajectory);
+                  
+    //triggered only if last point of actual trajectory is 
+    //overshot compared with reference point
     double reference_s_position = kept_next_reference_point->frenet_point.s_state(0);
     double acutual_s_positon = trajectory.frenet_trajectory_points.back().s_state(0);
     if(reference_s_position < acutual_s_positon)
@@ -1820,12 +1824,12 @@ bool FrenetPlanner::getNextOriginPointAndReferencePoint(
         double dist = calculate2DDistace(waypoints[i].pose.pose.position,
                                         kept_next_reference_point->cartesian_point);
         //TODO: calculate this value by constrained optimization
-        const double minimum_distance_to_converge = 6;
+        const double minimum_distance_to_converge = 10;
         if(dist < min_dist && dist > minimum_distance_to_converge)
         {
           min_dist = dist;
           std::cerr << "offset min dist " << min_dist << std::endl;
-          next_origin_point = kept_current_trajectory->frenet_trajectory_points[i];
+          // next_origin_point = kept_current_trajectory->frenet_trajectory_points[i];
           offset_index = i;
           is_offset = true;
         }
@@ -1834,14 +1838,18 @@ bool FrenetPlanner::getNextOriginPointAndReferencePoint(
       if(!is_offset)
       {
         offset_index = 0;
+        // next_origin_point = kept_current_trajectory->frenet_trajectory_points.back();
+        std::cerr << "offset is not valid---------------------------------" << std::endl;
+        std::cerr << "next origin point " << next_origin_point.s_state(0) << std::endl;
       }
       
       kept_current_reference_point->cartesian_point = 
         kept_current_trajectory->trajectory_points.waypoints[offset_index].pose.pose.position;
       kept_current_reference_point->frenet_point = 
         kept_current_trajectory->frenet_trajectory_points[offset_index];
-      
       size_t num_kept_current_waypoints = kept_current_trajectory->trajectory_points.waypoints.size();
+      std::cerr << "num kept current traj  " << num_kept_current_waypoints << std::endl;
+      std::cerr << "offset index " << offset_index << std::endl;
       for(size_t i = (num_kept_current_waypoints - 1); i > offset_index; i--)
       {
         kept_current_trajectory->trajectory_points.waypoints.erase(
@@ -1849,6 +1857,10 @@ bool FrenetPlanner::getNextOriginPointAndReferencePoint(
         kept_current_trajectory->frenet_trajectory_points.erase(
           kept_current_trajectory->frenet_trajectory_points.end());
       }
+      std::cerr << "after; num kept current traj points " << kept_current_trajectory->trajectory_points.waypoints.size() << std::endl;
+      std::cerr << "next origin point " << kept_current_trajectory->frenet_trajectory_points.back().s_state(0) << std::endl;
+      next_origin_point = kept_current_trajectory->frenet_trajectory_points.back();
+      std::cerr << "next origin s_v " << next_origin_point.s_state(1) << std::endl;
     }
   }
   return is_new_reference_point;
