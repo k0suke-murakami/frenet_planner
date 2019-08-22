@@ -1040,12 +1040,12 @@ bool FrenetPlanner::generateNewReferencePoint(
   {
     reference_point.frenet_point = reference_frenet_point;
     reference_point.cartesian_point = reference_cartesian_point;
-    reference_point.lateral_offset = 0.0;
+    reference_point.lateral_max_offset = 0.0;
     reference_point.lateral_sampling_resolution =0.01;
-    reference_point.longutudinal_offset = 0.0;
+    reference_point.longutudinal_max_offset = 0.0;
     reference_point.longutudinal_sampling_resolution = 0.01;
     reference_point.time_horizon = 12.0;
-    reference_point.time_horizon_offset = 8.0;
+    reference_point.time_horizon_max_offset = 8.0;
     reference_point.time_horizon_sampling_resolution = 1.0;
     reference_point.reference_type_info = reference_type_info;
   }
@@ -1053,12 +1053,12 @@ bool FrenetPlanner::generateNewReferencePoint(
   {
     reference_point.frenet_point = reference_frenet_point;
     reference_point.cartesian_point = reference_cartesian_point;
-    reference_point.lateral_offset = 0.0;
+    reference_point.lateral_max_offset = 0.0;
     reference_point.lateral_sampling_resolution = 0.01;
-    reference_point.longutudinal_offset = 0.0;
+    reference_point.longutudinal_max_offset = 0.0;
     reference_point.longutudinal_sampling_resolution = 0.01;
     reference_point.time_horizon = 12.0;
-    reference_point.time_horizon_offset = 4.0;
+    reference_point.time_horizon_max_offset = 4.0;
     reference_point.time_horizon_sampling_resolution = 2.0;
     reference_point.reference_type_info = reference_type_info;
   }
@@ -1067,12 +1067,12 @@ bool FrenetPlanner::generateNewReferencePoint(
     reference_point.frenet_point = reference_frenet_point;
     reference_point.frenet_point.s_state(1)*= 0.75;
     reference_point.cartesian_point = reference_cartesian_point;
-    reference_point.lateral_offset = 3.0;
+    reference_point.lateral_max_offset = 3.0;
     reference_point.lateral_sampling_resolution = 0.5;
-    reference_point.longutudinal_offset = 0.0;
+    reference_point.longutudinal_max_offset = 0.0;
     reference_point.longutudinal_sampling_resolution = 0.01;
     reference_point.time_horizon = 10.0;
-    reference_point.time_horizon_offset = 4.0;
+    reference_point.time_horizon_max_offset = 4.0;
     reference_point.time_horizon_sampling_resolution = 1.0;
     reference_point.reference_type_info = reference_type_info;
   }
@@ -1080,12 +1080,12 @@ bool FrenetPlanner::generateNewReferencePoint(
   {
     reference_point.frenet_point = reference_frenet_point;
     reference_point.cartesian_point = reference_cartesian_point;
-    reference_point.lateral_offset = 0.0;
+    reference_point.lateral_max_offset = 0.0;
     reference_point.lateral_sampling_resolution =0.01;
-    reference_point.longutudinal_offset = 0.0;
+    reference_point.longutudinal_max_offset = 0.0;
     reference_point.longutudinal_sampling_resolution = 0.01;
     reference_point.time_horizon = 12.0;
-    reference_point.time_horizon_offset = 8.0;
+    reference_point.time_horizon_max_offset = 8.0;
     reference_point.time_horizon_sampling_resolution = 1.0;
     reference_point.reference_type_info = reference_type_info;
   }
@@ -1094,12 +1094,12 @@ bool FrenetPlanner::generateNewReferencePoint(
     std::cerr << "stop at current reference point"  << std::endl;
     reference_point.frenet_point = reference_frenet_point;
     reference_point.cartesian_point = reference_cartesian_point;
-    reference_point.lateral_offset = 0.0;
+    reference_point.lateral_max_offset = 0.0;
     reference_point.lateral_sampling_resolution = 0.01;
-    reference_point.longutudinal_offset = 0.0;
+    reference_point.longutudinal_max_offset = 0.0;
     reference_point.longutudinal_sampling_resolution = 0.01;
     reference_point.time_horizon = 12.0;
-    reference_point.time_horizon_offset = 4.0;
+    reference_point.time_horizon_max_offset = 4.0;
     reference_point.time_horizon_sampling_resolution = 2.0;
     reference_point.reference_type_info = reference_type_info;
   }
@@ -1147,12 +1147,12 @@ bool FrenetPlanner::generateInitialReferencePoint(
     default_reference_frenet_point);
   
   reference_point.frenet_point = default_reference_frenet_point;
-  reference_point.lateral_offset = 0.0;
+  reference_point.lateral_max_offset = 0.0;
   reference_point.lateral_sampling_resolution =0.01;
-  reference_point.longutudinal_offset = 0.0;
+  reference_point.longutudinal_max_offset = 0.0;
   reference_point.longutudinal_sampling_resolution = 0.01;
   reference_point.time_horizon = 12.0;
-  reference_point.time_horizon_offset = 10.0;
+  reference_point.time_horizon_max_offset = 10.0;
   reference_point.time_horizon_sampling_resolution = 2.0;
   reference_point.reference_type_info.type = ReferenceType::Waypoint;
   reference_point.cartesian_point = default_reference_waypoint.pose.pose.position;
@@ -1189,7 +1189,7 @@ bool FrenetPlanner::updateReferencePoint(
   
   //TODO: find better way; thie loop has 2 differenet meaning
   //TODO: ideally reference_point need to be considered with keep distance from the objects
-  //       plus, has semantic meanings such as lateral_offset, time_horizon, etc                                                                                       
+  //       plus, has semantic meanings such as lateral_max_offset, time_horizon, etc                                                                                       
   //incident check
   //TODO: seek better way to deal with flag
   bool found_new_reference_point = false;
@@ -1245,22 +1245,22 @@ bool FrenetPlanner::updateReferencePoint(
   
   if(reference_waypoint.twist.twist.linear.x < 0.1)
   {
-    reference_point.lateral_offset = 0.0;
+    reference_point.lateral_max_offset = 0.0;
     reference_point.lateral_sampling_resolution = 0.01;
-    reference_point.longutudinal_offset = 0.0;
+    reference_point.longutudinal_max_offset = 0.0;
     reference_point.longutudinal_sampling_resolution = 0.01;
     reference_point.time_horizon = 12.0;
-    reference_point.time_horizon_offset = 4.0;
+    reference_point.time_horizon_max_offset = 4.0;
     reference_point.time_horizon_sampling_resolution = 2.0;
   }
   else
   {
-    reference_point.lateral_offset = 4.0;
+    reference_point.lateral_max_offset = 4.0;
     reference_point.lateral_sampling_resolution = 2.0;
-    reference_point.longutudinal_offset = 0.0;
+    reference_point.longutudinal_max_offset = 0.0;
     reference_point.longutudinal_sampling_resolution = 0.01;
     reference_point.time_horizon = 12.0;
-    reference_point.time_horizon_offset = 10.0;
+    reference_point.time_horizon_max_offset = 10.0;
     reference_point.time_horizon_sampling_resolution = 2.0;
     
   }
@@ -1378,23 +1378,23 @@ bool FrenetPlanner::drawTrajectories(
               std::vector<Trajectory>& trajectories,
               std::vector<autoware_msgs::Lane>& out_debug_trajectories)
 {
-  std::cerr << "lateral offset " << reference_point.lateral_offset << std::endl;
+  std::cerr << "lateral offset " << reference_point.lateral_max_offset << std::endl;
   std::cerr << "lateral samp " << reference_point.lateral_sampling_resolution << std::endl;
-  std::cerr << "long offset " << reference_point.longutudinal_offset << std::endl;
+  std::cerr << "long offset " << reference_point.longutudinal_max_offset << std::endl;
   std::cerr << "long samp "   << reference_point.longutudinal_sampling_resolution<< std::endl;
   std::cerr << "th default " << reference_point.time_horizon << std::endl;
-  std::cerr << "th offset " << reference_point.time_horizon_offset << std::endl;
+  std::cerr << "th offset " << reference_point.time_horizon_max_offset << std::endl;
   std::cerr << "th samp "   << reference_point.time_horizon_sampling_resolution<< std::endl;
-  for(double lateral_offset = -1*reference_point.lateral_offset; 
-      lateral_offset<= reference_point.lateral_offset; 
+  for(double lateral_offset = -1*reference_point.lateral_max_offset; 
+      lateral_offset<= reference_point.lateral_max_offset; 
       lateral_offset+=reference_point.lateral_sampling_resolution)
   {
-    for(double longitudinal_offset = -1*reference_point.longutudinal_offset;
-        longitudinal_offset<= reference_point.longutudinal_offset;
+    for(double longitudinal_offset = -1*reference_point.longutudinal_max_offset;
+        longitudinal_offset<= reference_point.longutudinal_max_offset;
         longitudinal_offset+= reference_point.longutudinal_sampling_resolution)
     {
-      for(double time_horizon_offset = -1*reference_point.time_horizon_offset;
-          time_horizon_offset<=reference_point.time_horizon_offset;
+      for(double time_horizon_offset = -1*reference_point.time_horizon_max_offset;
+          time_horizon_offset<=reference_point.time_horizon_max_offset;
           time_horizon_offset+=reference_point.time_horizon_sampling_resolution)
       {
         Eigen::Vector3d target_d = reference_point.frenet_point.d_state;
@@ -1405,7 +1405,6 @@ bool FrenetPlanner::drawTrajectories(
         frenet_target_point.d_state = target_d;
         frenet_target_point.s_state = target_s;
         double target_time_horizon = reference_point.time_horizon + time_horizon_offset;
-        // std::cerr << "reference time horizon " << target_time_horizon << std::endl;
         Trajectory trajectory;
         getTrajectory(
             lane_points,

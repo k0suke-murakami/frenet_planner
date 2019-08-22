@@ -60,12 +60,12 @@ struct ReferencePoint
 {
   FrenetPoint frenet_point;
   geometry_msgs::Point cartesian_point;
-  double lateral_offset;
+  double lateral_max_offset;
   double lateral_sampling_resolution;
-  double longutudinal_offset;
+  double longutudinal_max_offset;
   double longutudinal_sampling_resolution;
   double time_horizon;
-  double time_horizon_offset;
+  double time_horizon_max_offset;
   double time_horizon_sampling_resolution;
   ReferenceTypeInfo reference_type_info;
 };
