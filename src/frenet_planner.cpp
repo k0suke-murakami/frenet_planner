@@ -965,10 +965,10 @@ bool FrenetPlanner::generateNewReferencePoint(
       std::cerr << "reference point index !!!!!---------------------------------------------------------- " << reference_waypoint_index << std::endl;
       geometry_msgs::Point reference_point = 
         trajectory.trajectory_points.waypoints[reference_waypoint_index].pose.pose.position;  
-      double stop_linear_velocity = 0.0;
+      double target_linear_velocity = 0.3;
       convertWaypoint2FrenetPoint(
         reference_point,
-        stop_linear_velocity,
+        target_linear_velocity,
         lane_points,
         reference_frenet_point);
       reference_type_info.type = ReferenceType::Obstacle;
