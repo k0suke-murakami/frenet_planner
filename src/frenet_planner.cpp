@@ -50,9 +50,9 @@ geometry_msgs::Point transformToRelativeCoordinate2D(const geometry_msgs::Point 
 //does not consider time axis motion of ego vehicle
 FrenetPlanner::FrenetPlanner():
 dt_for_sampling_points_(0.5),
-initial_linear_velocity_m_s_(0.6)
+initial_velocity_m_s_(0.6),
+velcity_before_obstalcle_m_s_(0.3)
 {
-
 }
 
 FrenetPlanner::~FrenetPlanner()
@@ -965,10 +965,9 @@ bool FrenetPlanner::generateNewReferencePoint(
       std::cerr << "reference point index !!!!!---------------------------------------------------------- " << reference_waypoint_index << std::endl;
       geometry_msgs::Point reference_point = 
         trajectory.trajectory_points.waypoints[reference_waypoint_index].pose.pose.position;  
-      double target_linear_velocity = 0.3;
       convertWaypoint2FrenetPoint(
         reference_point,
-        target_linear_velocity,
+        velcity_before_obstalcle_m_s_,
         lane_points,
         reference_frenet_point);
       reference_type_info.type = ReferenceType::Obstacle;
@@ -1470,7 +1469,7 @@ bool FrenetPlanner::getOriginPointAndReferencePoint(
                        nearest_waypoint);
     convertWaypoint2FrenetPoint(
       nearest_waypoint.pose.pose.position,
-      initial_linear_velocity_m_s_,
+      initial_velocity_m_s_,
       lane_points,
       frenet_point);
     origin_frenet_point = frenet_point;
@@ -1731,7 +1730,7 @@ bool FrenetPlanner::getNextOriginPointAndReferencePoint(
     double distance = calculate2DDistace(collsion_object_point, 
                                          kept_next_reference_point->cartesian_point);
     //TODO:  use param/variable
-    double distance_to_obstacle = 4;
+    double distance_to_obstacle = 6;
     if(distance < distance_to_obstacle)
     {
       double min_distance = 99999;
@@ -1758,7 +1757,7 @@ bool FrenetPlanner::getNextOriginPointAndReferencePoint(
       else
       {
         FrenetPoint tmp_frenet_point = kept_current_trajectory->frenet_trajectory_points[reference_point_index];
-        tmp_frenet_point.s_state(1) = 0.0;
+        tmp_frenet_point.s_state(1) = velcity_before_obstalcle_m_s_;
         kept_next_reference_point->frenet_point = tmp_frenet_point;
         kept_next_reference_point->cartesian_point = waypoints[reference_point_index].pose.pose.position;
         size_t current_trajectory_size = kept_current_trajectory->frenet_trajectory_points.size();
@@ -1794,7 +1793,10 @@ bool FrenetPlanner::getNextOriginPointAndReferencePoint(
   //offset only for stopping waypoint
   //validity check for current_reference_point 
   //if new_reference_point is too close to converge to 0
-  if(kept_next_reference_point->frenet_point.s_state(1) < 0.01)
+  if(kept_next_reference_point->reference_type_info.type 
+     == ReferenceType::Obstacle ||
+     kept_next_reference_point->reference_type_info.type
+     == ReferenceType::StopLine)
   {
     Trajectory trajectory;
     getTrajectory(lane_points,
