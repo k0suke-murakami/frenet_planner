@@ -49,6 +49,13 @@ enum class ReferenceType
   Unknown
 };
 
+struct ReferenceTypeInfo
+{
+  ReferenceType type;
+  size_t referencing_object_id;
+  size_t referencing_object_index;
+};
+
 struct ReferencePoint
 {
   FrenetPoint frenet_point;
@@ -60,7 +67,7 @@ struct ReferencePoint
   double time_horizon;
   double time_horizon_offset;
   double time_horizon_sampling_resolution;
-  ReferenceType reference_type;
+  ReferenceTypeInfo reference_type_info;
 };
 
 //TODO: change name to Trajectory
@@ -215,6 +222,11 @@ private:
   
   bool isCollision(const autoware_msgs::Waypoint& waypoint,
                    const autoware_msgs::DetectedObjectArray& objects);
+                   
+  bool isCollision(const autoware_msgs::Waypoint& waypoint,
+                   const autoware_msgs::DetectedObjectArray& objects,
+                   size_t& collision_object_id,
+                   size_t& collision_object_index);
   
   bool isReferencePointValid(const geometry_msgs::Pose& ego_pose,
                           const geometry_msgs::Point& cartesian_reference_point,
@@ -253,7 +265,9 @@ private:
   bool isTrajectoryCollisionFree(
     const std::vector<autoware_msgs::Waypoint>& trajectory_points,
     const autoware_msgs::DetectedObjectArray& objects,
-    size_t& collision_waypoint_index);
+    size_t& collision_waypoint_index,
+    size_t& collision_object_id,
+    size_t& collision_object_index);
     
   bool isTrajectoryCollisionFree(
     const std::vector<autoware_msgs::Waypoint>& trajectory_points,

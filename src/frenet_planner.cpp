@@ -845,13 +845,13 @@ bool FrenetPlanner::generateNewReferencePoint(
   ReferencePoint& reference_point)
 {
   //TODO: assuming current_reference_point is terminal point in global waypoint
-  if(current_reference_point.reference_type == ReferenceType::StopLine)
+  if(current_reference_point.reference_type_info.type == ReferenceType::StopLine)
   {
     return false;
   }
   std::cerr << "calling getNewReferencePoint for next_reference_point" << std::endl;
   std::cerr << "----------------------------------------------current reference type " 
-  << static_cast<int>(current_reference_point.reference_type) << std::endl;
+  << static_cast<int>(current_reference_point.reference_type_info.type) << std::endl;
   //change look ahead distance based on current velocity
   const double lookahead_distance_ratio = 4.0;
   double lookahead_distance = fabs(origin_linear_velocity) * lookahead_distance_ratio;
@@ -904,10 +904,15 @@ bool FrenetPlanner::generateNewReferencePoint(
   //TODO: change the behavior here based on current_reference_point's reference type
   //TODO: need refactor 
   // only assuming avoid obstacle by moving right
-  ReferenceType reference_type = ReferenceType::Unknown;
+  ReferenceTypeInfo reference_type_info;
+  reference_type_info.type = ReferenceType::Unknown;
+  size_t collision_object_id = 0;
+  size_t collision_object_index = 0;
+  reference_type_info.referencing_object_id = collision_object_id;
+  reference_type_info.referencing_object_index = collision_object_index;
   FrenetPoint reference_frenet_point;
   geometry_msgs::Point reference_cartesian_point;
-  if(current_reference_point.reference_type != ReferenceType::Obstacle)
+  if(current_reference_point.reference_type_info.type != ReferenceType::Obstacle)
   {
     
     double time_horizon = 8.0;
@@ -919,25 +924,27 @@ bool FrenetPlanner::generateNewReferencePoint(
                   time_horizon,
                   dt_for_sampling_points_,
                   trajectory);
-    size_t collision_waypoint_index;
+    size_t collision_waypoint_index = 0;
     bool is_collision_free = true;
     if(objects_ptr)
     {
       is_collision_free = isTrajectoryCollisionFree(
                                 trajectory.trajectory_points.waypoints,
                                 *objects_ptr,
-                                collision_waypoint_index);
+                                collision_waypoint_index,
+                                collision_object_id,
+                                collision_object_index);
     }
     
     if(is_collision_free)
     {
       if(default_target_waypoint.twist.twist.linear.x < 0.01)
       {
-        reference_type = ReferenceType::StopLine;
+        reference_type_info.type = ReferenceType::StopLine;
       }
       else
       {
-        reference_type = ReferenceType::Waypoint;
+        reference_type_info.type = ReferenceType::Waypoint;
       }
       
       reference_frenet_point = default_reference_frenet_point;
@@ -964,7 +971,9 @@ bool FrenetPlanner::generateNewReferencePoint(
         stop_linear_velocity,
         lane_points,
         reference_frenet_point);
-      reference_type = ReferenceType::Obstacle;
+      reference_type_info.type = ReferenceType::Obstacle;
+      reference_type_info.referencing_object_id = collision_object_id;
+      reference_type_info.referencing_object_index = collision_object_index;
       reference_cartesian_point = reference_point;
       reference_frenet_point = reference_frenet_point;
     }
@@ -991,19 +1000,23 @@ bool FrenetPlanner::generateNewReferencePoint(
                     dt_for_sampling_points_,
                     trajectory);
       size_t collision_waypoint_index;
+      size_t collision_object_id;
+      size_t collision_object_index;
       bool is_collision_free = true;
       if(objects_ptr)
       {
         is_collision_free = isTrajectoryCollisionFree(
                                   trajectory.trajectory_points.waypoints,
                                   *objects_ptr,
-                                  collision_waypoint_index);
+                                  collision_waypoint_index,
+                                  collision_object_id,
+                                  collision_object_index);
       }
       
       if(is_collision_free)
       {
         std::cerr << "lateral offset " << lateral_offset << std::endl;
-        reference_type = ReferenceType::AvoidingPoint;
+        reference_type_info.type = ReferenceType::AvoidingPoint;
         reference_frenet_point = offset_reference_frenet_point;
         reference_cartesian_point = trajectory.trajectory_points.waypoints.back().pose.pose.position;
         has_got_collision_free_trajectory = true;
@@ -1013,7 +1026,7 @@ bool FrenetPlanner::generateNewReferencePoint(
     if(!has_got_collision_free_trajectory)
     {
       std::cerr << "error: could not find safe reference point; will stop at current reference point "  << std::endl;
-      reference_type = ReferenceType::Unknown;
+      reference_type_info.type = ReferenceType::Unknown;
       reference_frenet_point = current_reference_point.frenet_point;
       reference_frenet_point.s_state(1) = 0.0;
       reference_cartesian_point = current_reference_point.cartesian_point;
@@ -1023,7 +1036,7 @@ bool FrenetPlanner::generateNewReferencePoint(
   
   
   
-  if(reference_type == ReferenceType::Waypoint)
+  if(reference_type_info.type == ReferenceType::Waypoint)
   {
     reference_point.frenet_point = reference_frenet_point;
     reference_point.cartesian_point = reference_cartesian_point;
@@ -1034,9 +1047,9 @@ bool FrenetPlanner::generateNewReferencePoint(
     reference_point.time_horizon = 12.0;
     reference_point.time_horizon_offset = 8.0;
     reference_point.time_horizon_sampling_resolution = 1.0;
-    reference_point.reference_type = reference_type;
+    reference_point.reference_type_info = reference_type_info;
   }
-  else if(reference_type == ReferenceType::Obstacle)
+  else if(reference_type_info.type == ReferenceType::Obstacle)
   {
     reference_point.frenet_point = reference_frenet_point;
     reference_point.cartesian_point = reference_cartesian_point;
@@ -1047,9 +1060,9 @@ bool FrenetPlanner::generateNewReferencePoint(
     reference_point.time_horizon = 12.0;
     reference_point.time_horizon_offset = 4.0;
     reference_point.time_horizon_sampling_resolution = 2.0;
-    reference_point.reference_type = reference_type;
+    reference_point.reference_type_info = reference_type_info;
   }
-  else if(reference_type == ReferenceType::AvoidingPoint)
+  else if(reference_type_info.type == ReferenceType::AvoidingPoint)
   {
     reference_point.frenet_point = reference_frenet_point;
     reference_point.frenet_point.s_state(1)*= 0.75;
@@ -1061,9 +1074,9 @@ bool FrenetPlanner::generateNewReferencePoint(
     reference_point.time_horizon = 10.0;
     reference_point.time_horizon_offset = 4.0;
     reference_point.time_horizon_sampling_resolution = 1.0;
-    reference_point.reference_type = reference_type;
+    reference_point.reference_type_info = reference_type_info;
   }
-  else if(reference_type == ReferenceType::StopLine)
+  else if(reference_type_info.type == ReferenceType::StopLine)
   {
     reference_point.frenet_point = reference_frenet_point;
     reference_point.cartesian_point = reference_cartesian_point;
@@ -1074,7 +1087,7 @@ bool FrenetPlanner::generateNewReferencePoint(
     reference_point.time_horizon = 12.0;
     reference_point.time_horizon_offset = 8.0;
     reference_point.time_horizon_sampling_resolution = 1.0;
-    reference_point.reference_type = reference_type;
+    reference_point.reference_type_info = reference_type_info;
   }
   else
   {
@@ -1088,7 +1101,7 @@ bool FrenetPlanner::generateNewReferencePoint(
     reference_point.time_horizon = 12.0;
     reference_point.time_horizon_offset = 4.0;
     reference_point.time_horizon_sampling_resolution = 2.0;
-    reference_point.reference_type = ReferenceType::Unknown;
+    reference_point.reference_type_info = reference_type_info;
   }
   return true;
 }
@@ -1141,7 +1154,7 @@ bool FrenetPlanner::generateInitialReferencePoint(
   reference_point.time_horizon = 12.0;
   reference_point.time_horizon_offset = 10.0;
   reference_point.time_horizon_sampling_resolution = 2.0;
-  reference_point.reference_type = ReferenceType::Waypoint;
+  reference_point.reference_type_info.type = ReferenceType::Waypoint;
   reference_point.cartesian_point = default_reference_waypoint.pose.pose.position;
   return true;
 }
@@ -1196,7 +1209,7 @@ bool FrenetPlanner::updateReferencePoint(
     {
       reference_waypoint = current_trajectory_points[i];
       found_new_reference_point = true;
-      reference_point.reference_type = ReferenceType::Obstacle;
+      reference_point.reference_type_info.type = ReferenceType::Obstacle;
       std::cerr << "Detect collision while updating reference point!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::endl;
       break;
     } 
@@ -1210,7 +1223,7 @@ bool FrenetPlanner::updateReferencePoint(
         min_dist = distance;
         reference_waypoint = flagged_waypoint;
         found_new_reference_point = true;
-        reference_point.reference_type = ReferenceType::StopLine;
+        reference_point.reference_type_info.type = ReferenceType::StopLine;
         std::cerr << "found flagged point!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"  << std::endl;
         break;
       }
@@ -1283,6 +1296,28 @@ bool FrenetPlanner::isCollision(const autoware_msgs::Waypoint& waypoint,
     //assuming obstacle is not car but corn
     if(distance < 2.5)
     {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool FrenetPlanner::isCollision(const autoware_msgs::Waypoint& waypoint,
+                                const autoware_msgs::DetectedObjectArray& objects,
+                                size_t& collision_object_id,
+                                size_t& collision_object_index)
+{
+  //TODO: more sophisticated collision check
+  for(size_t i = 0; i < objects.objects.size(); i++)
+  {
+    double distance = calculate2DDistace(waypoint.pose.pose.position,
+                                          objects.objects[i].pose.position);
+    //TODO: paremater
+    //assuming obstacle is not car but corn
+    if(distance < 2.5)
+    {
+      collision_object_id = objects.objects[i].id;
+      collision_object_index = i;
       return true;
     }
   }
@@ -1774,14 +1809,23 @@ bool FrenetPlanner::getNextOriginPointAndReferencePoint(
 bool FrenetPlanner::isTrajectoryCollisionFree(
     const std::vector<autoware_msgs::Waypoint>& trajectory_points,
     const autoware_msgs::DetectedObjectArray& objects,
-    size_t& collision_waypoint_index)
+    size_t& collision_waypoint_index,
+    size_t& collision_object_id,
+    size_t& collision_object_index)
 {
   for(size_t i= 0; i< trajectory_points.size(); i++)
   {
-    bool is_collision = isCollision(trajectory_points[i], objects);
+    size_t tmp_collision_object_id;
+    size_t tmp_collision_object_index;
+    bool is_collision = isCollision(trajectory_points[i], 
+                                    objects,
+                                    tmp_collision_object_id,
+                                    tmp_collision_object_index);
     if(is_collision)
     {
       collision_waypoint_index = i;
+      collision_object_id = tmp_collision_object_id;
+      collision_object_index = tmp_collision_object_index;
       return false;
     }
   }
