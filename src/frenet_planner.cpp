@@ -954,7 +954,6 @@ bool FrenetPlanner::generateNewReferencePoint(
     {
       // collision is detected
       std::cerr << "Put stop at collision point inside getNewReferencePoint " << std::endl;
-      double stop_linear_velocity = 0.0;
       
       size_t reference_waypoint_index = 0;
       //TODO: use of param/variable
@@ -965,7 +964,8 @@ bool FrenetPlanner::generateNewReferencePoint(
       std::cerr << "collision wp index " << collision_waypoint_index << std::endl;
       std::cerr << "reference point index !!!!!---------------------------------------------------------- " << reference_waypoint_index << std::endl;
       geometry_msgs::Point reference_point = 
-        trajectory.trajectory_points.waypoints[reference_waypoint_index].pose.pose.position;
+        trajectory.trajectory_points.waypoints[reference_waypoint_index].pose.pose.position;  
+      double stop_linear_velocity = 0.0;
       convertWaypoint2FrenetPoint(
         reference_point,
         stop_linear_velocity,
@@ -1720,10 +1720,60 @@ bool FrenetPlanner::getNextOriginPointAndReferencePoint(
     return is_new_reference_point;
   }
   
-  
+  std::cerr << "next reference type " << static_cast<int>(kept_next_reference_point->reference_type_info.type) << std::endl;
+  std::cerr << "next reference v " << kept_next_reference_point->frenet_point.s_state(1) << std::endl;
   // //validity check for next reference point
-  // if(kept_next_reference_point->reference_type == ReferenceType::Obstacle &&
-  //    )
+  if(kept_next_reference_point->reference_type_info.type == 
+     ReferenceType::Obstacle)
+  {
+    size_t collision_object_index = kept_next_reference_point->reference_type_info.referencing_object_index;
+    std::cerr << "collision object index " << collision_object_index << std::endl;
+    geometry_msgs::Point collsion_object_point = 
+       objects_ptr->objects[collision_object_index].pose.position;
+    double distance = calculate2DDistace(collsion_object_point, 
+                                         kept_next_reference_point->cartesian_point);
+    //TODO:  use param/variable
+    double distance_to_obstacle = 4;
+    if(distance < distance_to_obstacle)
+    {
+      double min_distance = 99999;
+      size_t reference_point_index = 0;
+      bool found_reference_point = false;
+      std::vector<autoware_msgs::Waypoint> waypoints =
+        kept_current_trajectory->trajectory_points.waypoints;
+      for(size_t i = 0; i < waypoints.size(); i++)
+      {
+        double tmp_distance = calculate2DDistace(waypoints[i].pose.pose.position,
+                                                 collsion_object_point); 
+        //TODO: use param/variable
+        if(tmp_distance < min_distance && tmp_distance > distance_to_obstacle)
+        {
+          min_distance = tmp_distance;
+          reference_point_index = i;
+          found_reference_point = true;
+        }
+      }
+      if(!found_reference_point)
+      {
+        std::cerr << "ERROR: could not find better next reference point; in getNextOriginPointAndReferencePoint"<< std::endl;
+      }
+      else
+      {
+        FrenetPoint tmp_frenet_point = kept_current_trajectory->frenet_trajectory_points[reference_point_index];
+        tmp_frenet_point.s_state(1) = 0.0;
+        kept_next_reference_point->frenet_point = tmp_frenet_point;
+        kept_next_reference_point->cartesian_point = waypoints[reference_point_index].pose.pose.position;
+        size_t current_trajectory_size = kept_current_trajectory->frenet_trajectory_points.size();
+        for(size_t i = reference_point_index; i < current_trajectory_size; i++)
+        {
+          kept_current_trajectory->trajectory_points.waypoints.erase(
+              kept_current_trajectory->trajectory_points.waypoints.end());
+          kept_current_trajectory->frenet_trajectory_points.erase(
+            kept_current_trajectory->frenet_trajectory_points.end());
+        }
+      }
+    }
+  }
   
   
   //offset only for stopping waypoint
@@ -1743,6 +1793,7 @@ bool FrenetPlanner::getNextOriginPointAndReferencePoint(
   {
     std::cerr << "Error: next_reference_point is behind current_reference_point; getNextReferencePoint" << std::endl;
   }
+  std::cerr << "s v " << kept_next_reference_point->frenet_point.s_state(1) << std::endl;
   if(kept_next_reference_point->frenet_point.s_state(1) < 0.01)
   {
     Trajectory trajectory;
@@ -1779,26 +1830,24 @@ bool FrenetPlanner::getNextOriginPointAndReferencePoint(
           is_offset = true;
         }
       }
-      //debug
+      
       if(!is_offset)
       {
-        std::cerr << "failed offset"  << std::endl;
+        offset_index = 0;
       }
-      else
+      
+      kept_current_reference_point->cartesian_point = 
+        kept_current_trajectory->trajectory_points.waypoints[offset_index].pose.pose.position;
+      kept_current_reference_point->frenet_point = 
+        kept_current_trajectory->frenet_trajectory_points[offset_index];
+      
+      size_t num_kept_current_waypoints = kept_current_trajectory->trajectory_points.waypoints.size();
+      for(size_t i = (num_kept_current_waypoints - 1); i > offset_index; i--)
       {
-        kept_current_reference_point->cartesian_point = 
-          kept_current_trajectory->trajectory_points.waypoints[offset_index].pose.pose.position;
-        kept_current_reference_point->frenet_point = 
-          kept_current_trajectory->frenet_trajectory_points[offset_index];
-        
-        size_t num_kept_current_waypoints = kept_current_trajectory->trajectory_points.waypoints.size();
-        for(size_t i = (num_kept_current_waypoints - 1); i > offset_index; i--)
-        {
-          kept_current_trajectory->trajectory_points.waypoints.erase(
-                kept_current_trajectory->trajectory_points.waypoints.end());
-          kept_current_trajectory->frenet_trajectory_points.erase(
-            kept_current_trajectory->frenet_trajectory_points.end());
-        }
+        kept_current_trajectory->trajectory_points.waypoints.erase(
+              kept_current_trajectory->trajectory_points.waypoints.end());
+        kept_current_trajectory->frenet_trajectory_points.erase(
+          kept_current_trajectory->frenet_trajectory_points.end());
       }
     }
   }
