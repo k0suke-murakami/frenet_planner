@@ -825,7 +825,7 @@ bool FrenetPlanner::isFlaggedWaypointCloseWithPoint(
   double dy = flagged_waypoint.pose.pose.position.y - 
               point.y;
   double distance = std::sqrt(std::pow(dx, 2) + std::pow(dy,2));
-  //TODO: ellipse collisio check
+  //TODO: ellipse collisio check variable/param
   double radius =4;
   if(distance < radius)
   {
@@ -1686,7 +1686,9 @@ bool FrenetPlanner::getNextOriginPointAndReferencePoint(
   }
   
   
-  
+  // //validity check for next reference point
+  // if(kept_next_reference_point->reference_type == ReferenceType::Obstacle &&
+  //    )
   
   
   //offset only for stopping waypoint
