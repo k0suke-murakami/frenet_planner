@@ -70,9 +70,9 @@ FrenetPlannerROS::FrenetPlannerROS()
   current_pose_sub_ = nh_.subscribe("/current_pose", 1, &FrenetPlannerROS::currentPoseCallback, this);
   current_velocity_sub_ = nh_.subscribe("/current_velocity", 1, &FrenetPlannerROS::currentVelocityCallback, this);
   objects_sub_ = nh_.subscribe("/detection/fake_perception/objects", 1, &FrenetPlannerROS::objectsCallback, this);
-  // double timer_callback_dt = 0.05;
+  double timer_callback_dt = 0.05;
   // double timer_callback_dt = 1.0;
-  double timer_callback_dt = 0.5;
+  // double timer_callback_dt = 0.5;
   timer_ = nh_.createTimer(ros::Duration(timer_callback_dt), &FrenetPlannerROS::timerCallback, this);
   
 
@@ -526,12 +526,6 @@ void FrenetPlannerROS::loadVectormap()
 {
   vectormap_load_ptr_->load();
 }
-
-void FrenetPlannerROpoints_marker_array()
-{
-  
-}
-
 
 // TODO: make this faster by kd-tree
 Point FrenetPlannerROS::getNearestPoint(const geometry_msgs::PoseStamped& ego_pose)

@@ -90,7 +90,6 @@ private:
   void objectsCallback(const autoware_msgs::DetectedObjectArray& msg);
   void timerCallback(const ros::TimerEvent &e);
   void loadVectormap();
-  void publishMarkers();
   Point getNearestPoint(const geometry_msgs::PoseStamped& ego_pose);
 
 };

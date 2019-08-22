@@ -1801,7 +1801,7 @@ bool FrenetPlanner::getNextOriginPointAndReferencePoint(
     getTrajectory(lane_points,
                   reference_waypoints,
                   next_origin_point,
-                  next_origin_point,
+                  kept_next_reference_point->frenet_point,
                   kept_next_reference_point->time_horizon,
                   dt_for_sampling_points_,
                   trajectory);
@@ -1828,8 +1828,6 @@ bool FrenetPlanner::getNextOriginPointAndReferencePoint(
         if(dist < min_dist && dist > minimum_distance_to_converge)
         {
           min_dist = dist;
-          std::cerr << "offset min dist " << min_dist << std::endl;
-          // next_origin_point = kept_current_trajectory->frenet_trajectory_points[i];
           offset_index = i;
           is_offset = true;
         }
@@ -1838,9 +1836,6 @@ bool FrenetPlanner::getNextOriginPointAndReferencePoint(
       if(!is_offset)
       {
         offset_index = 0;
-        // next_origin_point = kept_current_trajectory->frenet_trajectory_points.back();
-        std::cerr << "offset is not valid---------------------------------" << std::endl;
-        std::cerr << "next origin point " << next_origin_point.s_state(0) << std::endl;
       }
       
       kept_current_reference_point->cartesian_point = 
