@@ -1687,6 +1687,8 @@ bool FrenetPlanner::getNextOriginPointAndReferencePoint(
   next_origin_point = kept_current_trajectory->frenet_trajectory_points.back();
   
   //TODO: non-holnomic at low velocity; v_0.4
+  // v0.3 something like below
+  //if(next_origin_point.s_state(1) < 0.1 && ReferenceType == ReferenceType::Obstacle) 
   if(next_origin_point.s_state(1) < 0.1)
   {
     next_origin_point.s_state(1) += 0.3;
