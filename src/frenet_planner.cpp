@@ -1684,26 +1684,28 @@ bool FrenetPlanner::getNextOriginPointAndReferencePoint(
     // next_origin_point = kept_current_trajectory->frenet_trajectory_points.back();
     return is_new_reference_point;
   }
-  next_origin_point = kept_current_trajectory->frenet_trajectory_points.back();
   
+  
+  
+  
+  
+  //offset only for stopping waypoint
+  //validity check for current_reference_point 
+  //if new_reference_point is too close to converge to 0
+  next_origin_point = kept_current_trajectory->frenet_trajectory_points.back();
   //TODO: non-holnomic at low velocity; v_0.4
   // v0.3 something like below
   //if(next_origin_point.s_state(1) < 0.1 && ReferenceType == ReferenceType::Obstacle) 
   if(next_origin_point.s_state(1) < 0.1)
   {
     next_origin_point.s_state(1) += 0.3;
-  }
-  
+  } 
   //TODO: validation that make sure next_reference_point.s_p > current_reference_point.s_p
   if(kept_next_reference_point->frenet_point.s_state(0) <
      kept_current_reference_point->frenet_point.s_state(0))
   {
     std::cerr << "Error: next_reference_point is behind current_reference_point; getNextReferencePoint" << std::endl;
   }
-    
-  //offset only for stopping waypoint
-  //validity check for current_reference_point 
-  //if new_reference_point is too close to converge to 0
   if(kept_next_reference_point->frenet_point.s_state(1) < 0.01)
   {
     Trajectory trajectory;
