@@ -945,8 +945,8 @@ bool FrenetPlanner::generateNewReferencePoint(
     }
     else
     {
+      // collision is detected
       std::cerr << "Put stop at collision point inside getNewReferencePoint " << std::endl;
-      reference_type = ReferenceType::Obstacle;
       double stop_linear_velocity = 0.0;
       
       size_t reference_waypoint_index = 0;
@@ -955,7 +955,8 @@ bool FrenetPlanner::generateNewReferencePoint(
       {
         reference_waypoint_index = collision_waypoint_index - 6;
       }
-      
+      std::cerr << "collision wp index " << collision_waypoint_index << std::endl;
+      std::cerr << "reference point index !!!!!---------------------------------------------------------- " << reference_waypoint_index << std::endl;
       geometry_msgs::Point reference_point = 
         trajectory.trajectory_points.waypoints[reference_waypoint_index].pose.pose.position;
       convertWaypoint2FrenetPoint(
@@ -963,7 +964,9 @@ bool FrenetPlanner::generateNewReferencePoint(
         stop_linear_velocity,
         lane_points,
         reference_frenet_point);
+      reference_type = ReferenceType::Obstacle;
       reference_cartesian_point = reference_point;
+      reference_frenet_point = reference_frenet_point;
     }
   }
   else
@@ -1695,10 +1698,10 @@ bool FrenetPlanner::getNextOriginPointAndReferencePoint(
   {
     std::cerr << "Error: next_reference_point is behind current_reference_point; getNextReferencePoint" << std::endl;
   }
-  
-  
-  //offset only for stop waypoint
-  //validity check if new_reference_point is too close to converge to 0
+    
+  //offset only for stopping waypoint
+  //validity check for current_reference_point 
+  //if new_reference_point is too close to converge to 0
   if(kept_next_reference_point->frenet_point.s_state(1) < 0.01)
   {
     Trajectory trajectory;
