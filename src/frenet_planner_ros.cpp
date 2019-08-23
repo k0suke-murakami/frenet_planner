@@ -384,10 +384,10 @@ void FrenetPlannerROS::timerCallback(const ros::TimerEvent &e)
       pointTFToMsg(tf_p, tf_point_msg);
       debug_center_point_text.pose.position = tf_point_msg;
       debug_center_point_text.text = std::to_string(point.cumulated_s).substr(0, 5);
-      debug_center_point_text.text += std::string(" ");
-      debug_center_point_text.text += std::to_string(point.tx);
-      debug_center_point_text.text += std::string(" ");
-      debug_center_point_text.text += std::to_string(point.ty);
+      // debug_center_point_text.text += std::string(" ");
+      // debug_center_point_text.text += std::to_string(point.tx);
+      // debug_center_point_text.text += std::string(" ");
+      // debug_center_point_text.text += std::to_string(point.ty);
       
       debug_global_point_id ++;
       
@@ -484,10 +484,10 @@ void FrenetPlannerROS::timerCallback(const ros::TimerEvent &e)
       trajectory_points_text.text += 
         std::to_string(velocity_in_kmh).substr(0,4);
         
-      trajectory_points_text.text += std::string(" ");
-      trajectory_points_text.text += std::to_string(pose.position.x);
-      trajectory_points_text.text += std::string(" ");
-      trajectory_points_text.text += std::to_string(pose.position.y);
+      // trajectory_points_text.text += std::string(" ");
+      // trajectory_points_text.text += std::to_string(pose.position.x);
+      // trajectory_points_text.text += std::string(" ");
+      // trajectory_points_text.text += std::to_string(pose.position.y);
       
       // trajectory_points_text.pose.orientation = waypoint.pose.pose.orientation;
       unique_id++;
