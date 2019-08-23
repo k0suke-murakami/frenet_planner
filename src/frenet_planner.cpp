@@ -719,9 +719,9 @@ bool FrenetPlanner::selectBestTrajectory(
       frenet_point_at_time_horizon.s_state(0) - kept_reference_point->frenet_point.s_state(0));
     debug_last_waypoints_actual_d.push_back(frenet_point_at_time_horizon.d_state(0));
     debug_last_waypoints_actual_s.push_back(frenet_point_at_time_horizon.s_state(0));
-    std::cerr << "diff s " <<  frenet_point_at_time_horizon.s_state(0) - kept_reference_point->frenet_point.s_state(0)<< std::endl;
+    // std::cerr << "diff s " <<  frenet_point_at_time_horizon.s_state(0) - kept_reference_point->frenet_point.s_state(0)<< std::endl;
     // std::cerr << "diff sv " <<  frenet_point_at_time_horizon.s_state(1) - kept_reference_point->frenet_point.s_state(1)<< std::endl;
-    std::cerr << "diff d " <<  frenet_point_at_time_horizon.d_state(0) - kept_reference_point->frenet_point.d_state(0)<< std::endl;
+    // std::cerr << "diff d " <<  frenet_point_at_time_horizon.d_state(0) - kept_reference_point->frenet_point.d_state(0)<< std::endl;
     // std::cerr << "total last wp diff " <<  ref_last_waypoint_cost<< std::endl;
     // std::cerr << "total wps diff " <<  ref_waypoints_cost<< std::endl;
   }
