@@ -1844,6 +1844,8 @@ bool FrenetPlanner::getNextOriginPointAndReferencePoint(
         kept_current_trajectory->frenet_trajectory_points.erase(
           kept_current_trajectory->frenet_trajectory_points.end());
       }
+      std::cerr << "reference point index " << reference_point_index << std::endl;
+      std::cerr << "num traj points " << kept_current_trajectory->frenet_trajectory_points.size() << std::endl;
       kept_current_reference_point->cartesian_point = kept_current_trajectory->trajectory_points.waypoints.front().pose.pose.position;
       kept_current_reference_point->frenet_point = kept_current_trajectory->frenet_trajectory_points.front();
       next_origin_point = kept_current_reference_point->frenet_point;
