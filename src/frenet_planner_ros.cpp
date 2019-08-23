@@ -48,7 +48,39 @@ FrenetPlannerROS::FrenetPlannerROS()
   use_global_waypoints_as_center_line_(true),
   has_calculated_center_line_from_global_waypoints_(false)
 {
-  frenet_planner_ptr_.reset(new FrenetPlanner());
+  double timer_callback_delta_second;
+  private_nh_.param<double>("timer_callback_delta_second", timer_callback_delta_second, 0.1);
+  
+  double initial_velocity_kmh;
+  double velcity_before_obstalcle_kmh;
+  double distance_before_obstalcle;
+  double obstacle_radius_from_center_point;
+  double min_lateral_referencing_offset_for_avoidance;
+  double max_lateral_referencing_offset_for_avoidance;
+  double cost_diff_waypoints_coef;
+  double cost_diff_last_waypoint_coef;
+  
+  private_nh_.param<double>("initial_velocity_kmh", initial_velocity_kmh, 2.1);
+  private_nh_.param<double>("velcity_before_obstalcle_kmh", velcity_before_obstalcle_kmh, 1.0);
+  private_nh_.param<double>("distance_before_obstacle", distance_before_obstalcle, 7.0);
+  private_nh_.param<double>("obstalce_radius_from_center_point", obstacle_radius_from_center_point, 3.0);
+  private_nh_.param<double>("min_lateral_referencing_offset_for_avoidance", min_lateral_referencing_offset_for_avoidance, 6.0);
+  private_nh_.param<double>("max_lateral_referencing_offset_for_avoidance", max_lateral_referencing_offset_for_avoidance, 7.0);
+  private_nh_.param<double>("cost_diff_waypoints_coef", cost_diff_waypoints_coef, 0.0);
+  private_nh_.param<double>("cost_diff_last_waypoint_coef", cost_diff_last_waypoint_coef, 1.0);
+  const double kmh2ms = 0.2778;
+  const double initial_velocity_ms = initial_velocity_kmh * kmh2ms;
+  const double velocity_before_obstacle_ms = velcity_before_obstalcle_kmh * kmh2ms;
+  frenet_planner_ptr_.reset(
+    new FrenetPlanner(
+        initial_velocity_ms,
+        velocity_before_obstacle_ms,
+        distance_before_obstalcle,
+        obstacle_radius_from_center_point,
+        min_lateral_referencing_offset_for_avoidance,
+        max_lateral_referencing_offset_for_avoidance,
+        cost_diff_waypoints_coef,
+        cost_diff_last_waypoint_coef));
   // TODO: assume that vectormap is already published when constructing FrenetPlannerROS
   if(!use_global_waypoints_as_center_line_)
   {
@@ -69,12 +101,12 @@ FrenetPlannerROS::FrenetPlannerROS()
   final_waypoints_sub_ = nh_.subscribe("base_waypoints", 1, &FrenetPlannerROS::waypointsCallback, this);
   current_pose_sub_ = nh_.subscribe("/current_pose", 1, &FrenetPlannerROS::currentPoseCallback, this);
   current_velocity_sub_ = nh_.subscribe("/current_velocity", 1, &FrenetPlannerROS::currentVelocityCallback, this);
-  objects_sub_ = nh_.subscribe("/detection/fake_perception/objects", 1, &FrenetPlannerROS::objectsCallback, this);
+  objects_sub_ = nh_.subscribe("/detection/lidar_detector/objects", 1, &FrenetPlannerROS::objectsCallback, this);
   // double timer_callback_dt = 0.05;
-  double timer_callback_dt = 0.1;
+  // double timer_callback_dt = 0.1;
   // double timer_callback_dt = 1.0;
   // double timer_callback_dt = 0.5;
-  timer_ = nh_.createTimer(ros::Duration(timer_callback_dt), &FrenetPlannerROS::timerCallback, this);
+  timer_ = nh_.createTimer(ros::Duration(timer_callback_delta_second), &FrenetPlannerROS::timerCallback, this);
   
 
 }

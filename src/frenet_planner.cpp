@@ -48,16 +48,24 @@ geometry_msgs::Point transformToRelativeCoordinate2D(const geometry_msgs::Point 
 
 //does not consider z axis information
 //does not consider time axis motion of ego vehicle
-FrenetPlanner::FrenetPlanner():
+FrenetPlanner::FrenetPlanner(
+  double initial_velocity_ms,
+  double velocity_before_obstalcle_ms,
+  double distance_before_obstalcle,
+  double obstacle_radius_from_center_point,
+  double min_lateral_referencing_offset_for_avoidance,
+  double max_lateral_referencing_offset_for_avoidance,
+  double diff_waypoints_coef,
+  double diff_last_waypoint_coef):
 dt_for_sampling_points_(0.5),
-initial_velocity_m_s_(0.6),
-velcity_before_obstalcle_m_s_(0.3),
-distance_before_obstalcle_(7.0),
-obstacle_radius_from_center_point_(3.0),
-min_lateral_referencing_offset_for_avoidance_(7.0),
-max_lateral_referencing_offset_for_avoidance_(8.0),
-diff_waypoints_coef_(0.0),
-diff_last_waypoint_coef_(1.0)
+initial_velocity_m_s_(initial_velocity_ms),
+velcity_before_obstalcle_m_s_(velocity_before_obstalcle_ms),
+distance_before_obstalcle_(distance_before_obstalcle),
+obstacle_radius_from_center_point_(obstacle_radius_from_center_point),
+min_lateral_referencing_offset_for_avoidance_(min_lateral_referencing_offset_for_avoidance),
+max_lateral_referencing_offset_for_avoidance_(max_lateral_referencing_offset_for_avoidance),
+diff_waypoints_coef_(diff_waypoints_coef),
+diff_last_waypoint_coef_(diff_last_waypoint_coef)
 {
 }
 

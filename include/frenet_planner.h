@@ -86,7 +86,15 @@ class FrenetPlanner
 {
 public:
 
-  FrenetPlanner();
+  FrenetPlanner(
+    double initial_velocity_ms,
+    double velocity_before_obstalcle_ms,
+    double distance_before_obstalcle,
+    double obstacle_radius_from_center_point,
+    double min_lateral_referencing_offset_for_avoidance,
+    double max_lateral_referencing_offset_for_avoidance,
+    double diff_waypoints_coef,
+    double diff_last_waypoint_coef);
   ~FrenetPlanner();
   
   
