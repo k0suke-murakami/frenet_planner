@@ -64,8 +64,8 @@ FrenetPlannerROS::FrenetPlannerROS()
   private_nh_.param<double>("velcity_before_obstalcle_kmh", velcity_before_obstalcle_kmh, 1.0);
   private_nh_.param<double>("distance_before_obstacle", distance_before_obstalcle, 7.0);
   private_nh_.param<double>("obstalce_radius_from_center_point", obstacle_radius_from_center_point, 3.0);
-  private_nh_.param<double>("min_lateral_referencing_offset_for_avoidance", min_lateral_referencing_offset_for_avoidance, 6.0);
-  private_nh_.param<double>("max_lateral_referencing_offset_for_avoidance", max_lateral_referencing_offset_for_avoidance, 7.0);
+  private_nh_.param<double>("min_lateral_referencing_offset_for_avoidance", min_lateral_referencing_offset_for_avoidance, 5.0);
+  private_nh_.param<double>("max_lateral_referencing_offset_for_avoidance", max_lateral_referencing_offset_for_avoidance, 8.0);
   private_nh_.param<double>("cost_diff_waypoints_coef", cost_diff_waypoints_coef, 0.0);
   private_nh_.param<double>("cost_diff_last_waypoint_coef", cost_diff_last_waypoint_coef, 1.0);
   const double kmh2ms = 0.2778;
