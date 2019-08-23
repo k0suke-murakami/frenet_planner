@@ -28,8 +28,8 @@ Launch file available parameters:
 |`obstalce_radius_from_center_point`|*Double*|Radius using for collision check. Unit is `m`. Default `3.0`.|
 |`min_latetal_referencing_offset_for_avoidance`|*Double*|Minimum lateral offset for a reference point when performing an avoiding manuever. Unit is `m`. Default `5.0`.|
 |`max_latetal_referencing_offset_for_avoidance`|*Double*|Maximum lateral offset for a reference point when performing an avoiding manuever. Unit is `m`. Default `8.0`.|
-|`cost_diff_waypoints_coef`|*Double*|Coefficient for cost(running cost) calculation with reference waypoints. Default `0.0`.|
-|`cost_diff_last_waypoint_coef`|*Double*|Coefficient for cost(terminal cost) calculation with last reference waypoint. Default `1.0`.|
+|`cost_diff_waypoints_coef`|*Double*|Coefficient for cost(running cost) calculation with reference waypoints. Scale from 0.0 to 1.0. Default `0.0`.|
+|`cost_diff_last_waypoint_coef`|*Double*|Coefficient for cost(terminal cost) calculation with last reference waypoint. Scale from 0.0 to 1.0. Default `1.0`.|
 
 
 ### Subscribed topics
