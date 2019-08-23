@@ -52,11 +52,11 @@ FrenetPlanner::FrenetPlanner():
 dt_for_sampling_points_(0.5),
 initial_velocity_m_s_(0.6),
 velcity_before_obstalcle_m_s_(0.3),
-distance_before_obstalcle_(5.0),
+distance_before_obstalcle_(7.0),
 obstacle_radius_from_center_point_(3.0),
-min_lateral_referencing_offset_for_avoidance_(4.0),
+min_lateral_referencing_offset_for_avoidance_(7.0),
 max_lateral_referencing_offset_for_avoidance_(8.0),
-diff_waypoints_coef_(0.5),
+diff_waypoints_coef_(0.0),
 diff_last_waypoint_coef_(1.0)
 {
 }
@@ -711,9 +711,9 @@ bool FrenetPlanner::selectBestTrajectory(
       frenet_point_at_time_horizon.s_state(0) - kept_reference_point->frenet_point.s_state(0));
     debug_last_waypoints_actual_d.push_back(frenet_point_at_time_horizon.d_state(0));
     debug_last_waypoints_actual_s.push_back(frenet_point_at_time_horizon.s_state(0));
-    // std::cerr << "diff s " <<  frenet_point_at_time_horizon.s_state(0) - kept_reference_point->frenet_point.s_state(0)<< std::endl;
+    std::cerr << "diff s " <<  frenet_point_at_time_horizon.s_state(0) - kept_reference_point->frenet_point.s_state(0)<< std::endl;
     // std::cerr << "diff sv " <<  frenet_point_at_time_horizon.s_state(1) - kept_reference_point->frenet_point.s_state(1)<< std::endl;
-    // std::cerr << "diff d " <<  frenet_point_at_time_horizon.d_state(0) - kept_reference_point->frenet_point.d_state(0)<< std::endl;
+    std::cerr << "diff d " <<  frenet_point_at_time_horizon.d_state(0) - kept_reference_point->frenet_point.d_state(0)<< std::endl;
     // std::cerr << "total last wp diff " <<  ref_last_waypoint_cost<< std::endl;
     // std::cerr << "total wps diff " <<  ref_waypoints_cost<< std::endl;
   }
@@ -1135,7 +1135,7 @@ bool FrenetPlanner::generateNewReferencePoint(
     reference_point.longutudinal_max_offset = 0.0;
     reference_point.longutudinal_sampling_resolution = 0.01;
     reference_point.time_horizon = 10.0;
-    reference_point.time_horizon_max_offset = 4.0;
+    reference_point.time_horizon_max_offset = 6.0;
     reference_point.time_horizon_sampling_resolution = 1.0;
     reference_point.reference_type_info = reference_type_info;
   }
