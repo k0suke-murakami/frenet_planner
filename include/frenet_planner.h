@@ -106,6 +106,9 @@ private:
   double initial_velocity_m_s_;
   double velcity_before_obstalcle_m_s_;
   double distance_before_obstalcle_;
+  double obstacle_radius_from_center_point_;
+  double min_lateral_referencing_offset_for_avoidance_;
+  double max_lateral_referencing_offset_for_avoidance_;
   
   // TODO: think better name previous_best_trajectoy?
   std::unique_ptr<Trajectory> kept_current_trajectory_;

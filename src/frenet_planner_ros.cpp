@@ -252,30 +252,31 @@ void FrenetPlannerROS::timerCallback(const ros::TimerEvent &e)
     //debug
     visualization_msgs::MarkerArray points_marker_array;
     int unique_id = 0;
-    visualization_msgs::Marker reference_lane_points_marker;
-    reference_lane_points_marker.lifetime = ros::Duration(0.2);
-    reference_lane_points_marker.header = in_pose_ptr_->header;
-    reference_lane_points_marker.ns = std::string("lane_points_marker");
-    reference_lane_points_marker.action = visualization_msgs::Marker::MODIFY;
-    reference_lane_points_marker.pose.orientation.w = 1.0;
-    reference_lane_points_marker.id = unique_id;
-    reference_lane_points_marker.type = visualization_msgs::Marker::SPHERE_LIST;
-    reference_lane_points_marker.scale.x = 0.5;
+    
+    // visualization_msgs::Marker reference_lane_points_marker;
+    // reference_lane_points_marker.lifetime = ros::Duration(0.2);
+    // reference_lane_points_marker.header = in_pose_ptr_->header;
+    // reference_lane_points_marker.ns = std::string("lane_points_marker");
+    // reference_lane_points_marker.action = visualization_msgs::Marker::MODIFY;
+    // reference_lane_points_marker.pose.orientation.w = 1.0;
+    // reference_lane_points_marker.id = unique_id;
+    // reference_lane_points_marker.type = visualization_msgs::Marker::SPHERE_LIST;
+    // reference_lane_points_marker.scale.x = 0.5;
 
-    // Points are yellow
-    reference_lane_points_marker.color.r = 1.0f;
-    reference_lane_points_marker.color.g = 1.0f;
-    reference_lane_points_marker.color.a = 1;
-    for (const auto& next_point: local_center_points)
-    {
-      geometry_msgs::Point geometry_point;
-      geometry_point.x = next_point.tx;
-      geometry_point.y = next_point.ty;
-      geometry_point.z = next_point.rz;
-      reference_lane_points_marker.points.push_back(geometry_point);
-    }
-    points_marker_array.markers.push_back(reference_lane_points_marker);
-    unique_id++;
+    // // Points are yellow
+    // reference_lane_points_marker.color.r = 1.0f;
+    // reference_lane_points_marker.color.g = 1.0f;
+    // reference_lane_points_marker.color.a = 1;
+    // for (const auto& next_point: local_center_points)
+    // {
+    //   geometry_msgs::Point geometry_point;
+    //   geometry_point.x = next_point.tx;
+    //   geometry_point.y = next_point.ty;
+    //   geometry_point.z = next_point.rz;
+    //   reference_lane_points_marker.points.push_back(geometry_point);
+    // }
+    // points_marker_array.markers.push_back(reference_lane_points_marker);
+    // unique_id++;
     
     
     // visualize debug target point
@@ -383,9 +384,10 @@ void FrenetPlannerROS::timerCallback(const ros::TimerEvent &e)
       pointTFToMsg(tf_p, tf_point_msg);
       debug_center_point_text.pose.position = tf_point_msg;
       debug_center_point_text.text = std::to_string(point.cumulated_s).substr(0, 5);
-      // debug_center_point_text.text += std::to_string(point.tx);
-      // debug_center_point_text.text += std::string(" ");
-      // debug_center_point_text.text += std::to_string(point.ty);
+      debug_center_point_text.text += std::string(" ");
+      debug_center_point_text.text += std::to_string(point.tx);
+      debug_center_point_text.text += std::string(" ");
+      debug_center_point_text.text += std::to_string(point.ty);
       
       debug_global_point_id ++;
       
@@ -481,6 +483,11 @@ void FrenetPlannerROS::timerCallback(const ros::TimerEvent &e)
       
       trajectory_points_text.text += 
         std::to_string(velocity_in_kmh).substr(0,4);
+        
+      trajectory_points_text.text += std::string(" ");
+      trajectory_points_text.text += std::to_string(pose.position.x);
+      trajectory_points_text.text += std::string(" ");
+      trajectory_points_text.text += std::to_string(pose.position.y);
       
       // trajectory_points_text.pose.orientation = waypoint.pose.pose.orientation;
       unique_id++;
