@@ -55,7 +55,9 @@ velcity_before_obstalcle_m_s_(0.3),
 distance_before_obstalcle_(5.0),
 obstacle_radius_from_center_point_(3.0),
 min_lateral_referencing_offset_for_avoidance_(4.0),
-max_lateral_referencing_offset_for_avoidance_(8.0)
+max_lateral_referencing_offset_for_avoidance_(8.0),
+diff_waypoints_coef_(0.5),
+diff_last_waypoint_coef_(1.0)
 {
 }
 
@@ -723,7 +725,8 @@ bool FrenetPlanner::selectBestTrajectory(
   {
     double normalized_ref_waypoints_cost = ref_waypoints_costs[i]/sum_ref_waypoints_costs;
     double normalized_ref_last_waypoints_cost = ref_last_waypoints_costs[i]/sum_last_waypoints_costs;
-    double sum_cost = normalized_ref_waypoints_cost*0.5 + normalized_ref_last_waypoints_cost;
+    double sum_cost = normalized_ref_waypoints_cost*diff_waypoints_coef_ + 
+                      normalized_ref_last_waypoints_cost*diff_last_waypoint_coef_;
     costs.push_back(sum_cost);
     debug_norm_ref_wps_costs.push_back(normalized_ref_waypoints_cost);
     debug_norm_ref_last_wp_costs.push_back(normalized_ref_last_waypoints_cost);
@@ -1841,7 +1844,6 @@ bool FrenetPlanner::getNextOriginPointAndReferencePoint(
     {
       next_origin_point = kept_current_trajectory->frenet_trajectory_points.back();
     }
-    
   }
   else
   {

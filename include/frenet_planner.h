@@ -109,6 +109,8 @@ private:
   double obstacle_radius_from_center_point_;
   double min_lateral_referencing_offset_for_avoidance_;
   double max_lateral_referencing_offset_for_avoidance_;
+  double diff_waypoints_coef_;
+  double diff_last_waypoint_coef_;
   
   // TODO: think better name previous_best_trajectoy?
   std::unique_ptr<Trajectory> kept_current_trajectory_;
