@@ -96,6 +96,7 @@ public:
     double diff_waypoints_cost_coef,
     double diff_last_waypoint_cost_coef,
     double jerk_cost_coef,
+    double required_time_cost_coef,
     double lookahead_distance_per_ms_for_reference_point,
     double converge_distance_per_ms_for_stopline);
   ~FrenetPlanner();

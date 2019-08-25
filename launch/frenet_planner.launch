@@ -8,6 +8,7 @@
   <arg name="diff_waypoints_cost_coef" default="0.0"/>
   <arg name="diff_last_waypoint_cost_coef" default="1.0"/>
   <arg name="jerk_cost_coef" default="0.25"/>
+  <arg name="required_time_cost_coef" default="1.0"/>
   <arg name="lookahead_distance_per_kmh_for_reference_point" default="2.0"/>
   <arg name="converge_distance_per_kmh_for_stop" default="2.36"/>
   <node pkg="frenet_planner" type="frenet_planner" name="frenet_planner" output="screen">
@@ -20,6 +21,7 @@
     <param name="diff_waypoints_cost_coef"   value="$(arg diff_waypoints_cost_coef)" />
     <param name="diff_last_waypoint_cost_coef"   value="$(arg diff_last_waypoint_cost_coef)" />
     <param name="jerk_cost_coef"   value="$(arg jerk_cost_coef)" />
+    <param name="required_time_cost_coef"   value="$(arg required_time_cost_coef)" />
     <param name="lookahead_distance_per_kmh_for_reference_point"   value="$(arg lookahead_distance_per_kmh_for_reference_point)" />
     <param name="converge_distance_per_kmh_for_stop"   value="$(arg converge_distance_per_kmh_for_stop)" />
   </node>

@@ -58,6 +58,7 @@ FrenetPlanner::FrenetPlanner(
   double diff_waypoints_cost_coef,
   double diff_last_waypoint_cost_coef,
   double jerk_cost_coef,
+  double required_time_cost_coef,
   double lookahead_distance_per_ms_for_reference_point,
   double converge_distance_per_ms_for_stop):
 initial_velocity_ms_(initial_velocity_ms),
@@ -69,7 +70,7 @@ max_lateral_referencing_offset_for_avoidance_(max_lateral_referencing_offset_for
 diff_waypoints_cost_coef_(diff_waypoints_cost_coef),
 diff_last_waypoint_cost_coef_(diff_last_waypoint_cost_coef),
 jerk_cost_coef_(jerk_cost_coef),
-required_time_cost_coef_(0.0),
+required_time_cost_coef_(required_time_cost_coef),
 lookahead_distance_per_ms_for_reference_point_(lookahead_distance_per_ms_for_reference_point),
 minimum_lookahead_distance_for_reference_point_(12.0),
 lookahead_distance_for_reference_point_(minimum_lookahead_distance_for_reference_point_),
@@ -789,6 +790,10 @@ bool FrenetPlanner::selectBestTrajectory(
   std::vector<double> debug_norm_ref_last_wp_costs;
   std::vector<double> debug_norm_jerk_costs;
   std::vector<double> debug_norm_required_time_costs;
+  std::cerr << "sum las " << sum_last_waypoints_costs
+            << " sum jer "<< sum_jerk_costs
+            // << " sum tim "<< sum_required_time_costs
+            <<std::endl;
   for(size_t i = 0; i < ref_last_waypoints_costs.size(); i++)
   {
     double normalized_ref_waypoints_cost = ref_waypoints_costs[i]/sum_ref_waypoints_costs;
@@ -812,14 +817,13 @@ bool FrenetPlanner::selectBestTrajectory(
     //           << "sum "<< sum_cost<< std::endl;
     std::cerr  << "n-las "<< normalized_ref_last_waypoints_cost
               << " n-jer "<< normalized_jerk_cost
-              << " n-tim "<< normalized_required_time_cost
-              << " sum "<< sum_cost<< std::endl;
-    std::cerr << "sum las " << sum_last_waypoints_costs
-              << " sum jer "<< sum_jerk_costs
-              << " sum tim "<< sum_required_time_costs<<std::endl;
+              // << " n-tim "<< normalized_required_time_cost
+              << " sum "<< sum_cost
+              << std::endl;
     std::cerr << "act las " << ref_last_waypoints_costs[i]
               << " act jer "<< jerk_costs[i]
-              << " act tim "<< required_time_costs[i]<<std::endl;
+              // << " act tim "<< required_time_costs[i]
+              <<std::endl;
   }
   //arg sort 
   // https://stackoverflow.com/questions/1577475/c-sorting-and-keeping-track-of-indexes/12399290#12399290
