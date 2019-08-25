@@ -36,8 +36,8 @@ namespace autoware_msgs
 
 struct FrenetPoint
 {
-  Eigen::Vector3d s_state;
-  Eigen::Vector3d d_state;
+  Eigen::Vector4d s_state;
+  Eigen::Vector4d d_state;
 };
 
 enum class ReferenceType
@@ -75,9 +75,6 @@ struct Trajectory
 {
   autoware_msgs::Lane trajectory_points;
   std::vector<FrenetPoint> frenet_trajectory_points;
-  // TODO: think better implementation
-  Eigen::Vector3d target_d;
-  // double cost;
 };
 
 

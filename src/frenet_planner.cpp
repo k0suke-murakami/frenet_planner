@@ -213,7 +213,7 @@ bool FrenetPlanner::getTrajectory(
     const std::vector<Point>& lane_points,
     const std::vector<autoware_msgs::Waypoint>& reference_waypoints,
     const FrenetPoint& origin_frenet_point,
-    const FrenetPoint& reference_freent_point,
+    const FrenetPoint& reference_frenet_point,
     const double time_horizon,
     const double dt_for_sampling_points,
     Trajectory& trajectory)
@@ -226,11 +226,13 @@ bool FrenetPlanner::getTrajectory(
   
   
   // calculating coefficiency c012 for d
+  Eigen::Vector3d origin_frenet_d = origin_frenet_point.d_state.head(3);
+  Eigen::Vector3d reference_frenet_d = reference_frenet_point.d_state.head(3);
   Eigen::Matrix3d m1_0;
   m1_0 << 1.0, 0, 0,
           0, 1, 0,
           0, 0, 2; 
-  Eigen::Vector3d c012 = m1_0.inverse()*origin_frenet_point.d_state;
+  Eigen::Vector3d c012 = m1_0.inverse()*origin_frenet_d;
   
   // calculatiing coefficiency c345 for d 
   Eigen::Matrix3d m1_t;
@@ -241,7 +243,7 @@ bool FrenetPlanner::getTrajectory(
   m2_t << std::pow(time_horizon, 3),std::pow(time_horizon, 4),std::pow(time_horizon, 5),
           3*std::pow(time_horizon,2), 4*std::pow(time_horizon, 3), 5*std::pow(time_horizon, 4),
           6*time_horizon, 12*std::pow(time_horizon, 2), 20*std::pow(time_horizon, 3);
-  Eigen::Vector3d c345 = m2_t.inverse()*(reference_freent_point.d_state - m1_t*c012);
+  Eigen::Vector3d c345 = m2_t.inverse()*(reference_frenet_d - m1_t*c012);
   
   // // TODO:, write method for less code
   // // calculating coefficiency c012 for s
@@ -267,7 +269,8 @@ bool FrenetPlanner::getTrajectory(
   // TODO, write method for less code
   // calculating coefficiency c012 for s velocity
   Eigen::Vector2d current_s_va_state;
-  current_s_va_state = origin_frenet_point.s_state.tail(2);
+  current_s_va_state << origin_frenet_point.s_state(1),
+                        origin_frenet_point.s_state(2);
   
   Eigen::Matrix2d s_v_m1_0;
   s_v_m1_0 << 1, 0.0,
@@ -282,19 +285,23 @@ bool FrenetPlanner::getTrajectory(
   s_v_m2_t <<  3*std::pow(time_horizon, 2),4*std::pow(time_horizon, 3),
                6*time_horizon, 12*std::pow(time_horizon, 2);
   Eigen::Vector2d target_s_va_state;
-  target_s_va_state = reference_freent_point.s_state.tail(2);
+  target_s_va_state <<  reference_frenet_point.s_state(1),
+                        reference_frenet_point.s_state(2);
   Eigen::Vector2d s_v_c34 = s_v_m2_t.inverse()*(target_s_va_state - s_v_m1_t*s_v_c12);
   
   
   // sampling points from calculated path
   std::vector<double> d_vec;
-  double calculated_d, calculated_d_v, calculated_d_a, calculated_s, calculated_s_v, calculated_s_a;
-  //TODO: fix here 
+  double calculated_d, 
+         calculated_d_v, 
+         calculated_d_a,
+         calculated_d_j,
+         calculated_s, 
+         calculated_s_v, 
+         calculated_s_a,
+         calculated_s_j;
   calculated_s = origin_frenet_point.s_state(0);
   
-  //variables for cost calculation
-  double s_at_time_horizon,  s_v_at_time_horizon, d_at_time_horizion, d_v_at_time_horizon;
-  autoware_msgs::Waypoint waypoint_at_time_horizon;
   
   // sampling waypoint
   // for(double i = dt_for_sampling_points; i <= time_horizon; i+=dt_for_sampling_points)
@@ -303,12 +310,14 @@ bool FrenetPlanner::getTrajectory(
     calculated_d = c012(0) + c012(1)*i + c012(2)*i*i + c345(0)*i*i*i + c345(1)*i*i*i*i + c345(2)*i*i*i*i*i;
     calculated_d_v = c012(1) + 2*c012(2)*i + 3*c345(0)*i*i + 4*c345(1)*i*i*i + 5*c345(2)*i*i*i*i;
     calculated_d_a = 2*c012(2) + 6*c345(0)*i + 12*c345(1)*i*i + 20*c345(2)*i*i*i;
+    calculated_d_j = 6*c345(0) + 24*c345(1)*i + 60*c345(2)*i*i;
     
     // calculated_s = s_c012(0) + s_c012(1)*i + s_c012(2)*i*i + s_c345(0)*i*i*i + s_c345(1)*i*i*i*i + s_c345(2)*i*i*i*i*i;
     // calculated_s_v = s_c012(1) + 2*s_c012(2)*i + 3*s_c345(0)*i*i + 4*s_c345(1)*i*i*i + 5*s_c345(2)*i*i*i*i;
     // calculated_s_a = 2*s_c012(2) + 6*s_c345(0)*i + 12*s_c345(1)*i*i + 20*s_c345(2)*i*i*i;
-    calculated_s_v = s_v_c12(0) + 2*s_v_c12(1)*i + 3*s_v_c34(0)*i*i + 4*s_v_c34(1)*i*i*i;
+    calculated_s_j = 6*s_v_c34(0) + 24*s_v_c34(1)*i;
     calculated_s_a = 2*s_v_c12(1) + 6*s_v_c34(0)*i + 12*s_v_c34(1)*i*i;
+    calculated_s_v = s_v_c12(0) + 2*s_v_c12(1)*i + 3*s_v_c34(0)*i*i + 4*s_v_c34(1)*i*i*i;
     calculated_s += calculated_s_v * dt_for_sampling_points;
       
     
@@ -317,38 +326,20 @@ bool FrenetPlanner::getTrajectory(
     calculated_frenet_point.s_state(0) = calculated_s;
     calculated_frenet_point.s_state(1) = calculated_s_v;
     calculated_frenet_point.s_state(2) = calculated_s_a;
+    calculated_frenet_point.s_state(3) = calculated_s_j;
     calculated_frenet_point.d_state(0) = calculated_d;
     calculated_frenet_point.d_state(1) = calculated_d_v;
     calculated_frenet_point.d_state(2) = calculated_d_a;
+    calculated_frenet_point.d_state(3) = calculated_d_j;
+    trajectory.frenet_trajectory_points.push_back(calculated_frenet_point);
+    
     autoware_msgs::Waypoint waypoint;
     calculateWaypoint(lane_points, 
                       calculated_frenet_point,
                       waypoint);
-    // std::cerr << "waypoint linear velocity " << waypoint.twist.twist.linear.x << std::endl;
     waypoint.pose.pose.position.z = reference_waypoints.front().pose.pose.position.z;
     trajectory.trajectory_points.waypoints.push_back(waypoint);
-    
-    Eigen::Vector3d s_state, d_state;
-    s_state << calculated_s,
-               calculated_s_v,
-               calculated_s_a;
-    d_state << calculated_d,
-               calculated_d_v,
-               calculated_d_a;
-    FrenetPoint frenet_point;
-    frenet_point.s_state = s_state;
-    frenet_point.d_state = d_state;
-    trajectory.frenet_trajectory_points.push_back(frenet_point);
   }
-  // std::cerr << "discrete sum " << calculated_s<< std::endl;
-  // std::cerr << "continus sum " << current_s(0)+time_horizon*s_v_c12(0)+
-  //                                 time_horizon*time_horizon*s_v_c12(1)+
-  //                                 std::pow(time_horizon,3)*s_v_c34(0)+
-  //                                 std::pow(time_horizon,4)*s_v_c34(1)
-  //                                 << std::endl;
-  
-  //TODO: there meight be a better way
-  trajectory.target_d = reference_freent_point.d_state;  
   return false;
 }
 
@@ -687,6 +678,7 @@ bool FrenetPlanner::selectBestTrajectory(
   std::vector<double> debug_last_waypoints_costs_d;
   std::vector<double> debug_last_waypoints_actual_s;
   std::vector<double> debug_last_waypoints_actual_d;
+  std::vector<double> sum_jerk_costs;
   double sum_ref_waypoints_costs = 0;
   double sum_last_waypoints_costs = 0;
   for(const auto& trajectory: trajectories)
@@ -697,12 +689,19 @@ bool FrenetPlanner::selectBestTrajectory(
     {
       geometry_msgs::Point reference_point = subset_reference_waypoints[i].pose.pose.position;
       
-      autoware_msgs::Waypoint nearest_trajectory_point;
-      getNearestWaypoint(reference_point, 
+      size_t nearest_trajectory_point_index;
+      getNearestWaypointIndex(reference_point, 
                          trajectory.trajectory_points.waypoints,
-                         nearest_trajectory_point);
+                         nearest_trajectory_point_index);
+      
+      geometry_msgs::Point nearest_trajecotry_point = 
+        trajectory.trajectory_points.waypoints[nearest_trajectory_point_index].pose.pose.position;
       double dist = calculate2DDistace(reference_point, 
-                              nearest_trajectory_point.pose.pose.position);
+                                       nearest_trajecotry_point);
+      FrenetPoint nearest_frenet_point = 
+               trajectory.frenet_trajectory_points[nearest_trajectory_point_index];
+      double sum_jerk = nearest_frenet_point.s_state[2] + nearest_frenet_point.d_state[2];
+      sum_jerk_costs.push_back(sum_jerk);
       
       // std::cerr << "ref "<< reference_point.x << " " << reference_point.y << std::endl;
       // std::cerr << "nearest traj "<< nearest_trajectory_point.pose.pose.position.x << " " << nearest_trajectory_point.pose.pose.position.y << std::endl;
@@ -716,8 +715,9 @@ bool FrenetPlanner::selectBestTrajectory(
     FrenetPoint frenet_point_at_time_horizon = trajectory.frenet_trajectory_points.back();
     double ref_last_waypoint_cost = 
     std::pow(frenet_point_at_time_horizon.d_state(0) - kept_reference_point->frenet_point.d_state(0), 2) + 
-    std::pow(frenet_point_at_time_horizon.s_state(0) - kept_reference_point->frenet_point.s_state(0), 2) +
-    std::pow(frenet_point_at_time_horizon.s_state(1) - kept_reference_point->frenet_point.s_state(1), 2);
+    std::pow(frenet_point_at_time_horizon.s_state(0) - kept_reference_point->frenet_point.s_state(0), 2);
+    // std::pow(frenet_point_at_time_horizon.s_state(1) - kept_reference_point->frenet_point.s_state(1), 2);
+    
     // double ref_last_waypoint_cost = 
     // std::pow(frenet_point_at_time_horizon.d_state(0) - kept_reference_point->frenet_point.d_state(0), 2); 
     ref_last_waypoints_costs.push_back(ref_last_waypoint_cost);
@@ -772,6 +772,7 @@ bool FrenetPlanner::selectBestTrajectory(
               << " las cos d "<< debug_last_waypoints_costs_d[index]
               << " act d "<< debug_last_waypoints_actual_d[index]
               << " sum "<< costs[index]<< std::endl;
+    std::cerr << "sum jerk " << sum_jerk_costs[index] << std::endl;
     bool is_collision_free = true;
     if(objects_ptr)
     {
@@ -1479,8 +1480,8 @@ bool FrenetPlanner::drawTrajectories(
           time_horizon_offset<=reference_point.time_horizon_max_offset;
           time_horizon_offset+=reference_point.time_horizon_sampling_resolution)
       {
-        Eigen::Vector3d target_d = reference_point.frenet_point.d_state;
-        Eigen::Vector3d target_s = reference_point.frenet_point.s_state;
+        Eigen::Vector4d target_d = reference_point.frenet_point.d_state;
+        Eigen::Vector4d target_s = reference_point.frenet_point.s_state;
         target_d(0) += lateral_offset;
         target_s(0) += longitudinal_offset;
         FrenetPoint frenet_target_point;
@@ -2010,11 +2011,13 @@ bool FrenetPlanner::convertWaypoint2FrenetPoint(
     lane_points,        
     frenet_s_position,
     frenet_d_position);
-  Eigen::Vector3d frenet_s, frenet_d;
+  Eigen::Vector4d frenet_s, frenet_d;
   frenet_s << frenet_s_position,
               linear_velocity,
+              0,
               0;
   frenet_d << frenet_d_position,
+              0,
               0,
               0;
              
