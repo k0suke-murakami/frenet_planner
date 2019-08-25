@@ -155,7 +155,7 @@ private:
                           autoware_msgs::Waypoint& nearest_waypoint,
                           autoware_msgs::Waypoint& second_nearest_waypoint);
                
-  bool getTrajectory(
+  bool generateTrajectory(
     const std::vector<Point>& lane_points,
     const std::vector<autoware_msgs::Waypoint>& reference_waypoints,  
     const FrenetPoint& origin_frenet_point,

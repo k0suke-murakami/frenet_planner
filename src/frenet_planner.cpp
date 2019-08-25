@@ -67,7 +67,7 @@ min_lateral_referencing_offset_for_avoidance_(min_lateral_referencing_offset_for
 max_lateral_referencing_offset_for_avoidance_(max_lateral_referencing_offset_for_avoidance),
 diff_waypoints_cost_coef_(diff_waypoints_cost_coef),
 diff_last_waypoint_cost_coef_(diff_last_waypoint_cost_coef),
-jerk_cost_coef_(0.5),
+jerk_cost_coef_(0.25),
 required_time_cost_coef_(1.0),
 lookahead_distance_per_ms_for_reference_point_(lookahead_distance_per_ms_for_reference_point),
 minimum_lookahead_distance_for_reference_point_(12.0),
@@ -212,7 +212,7 @@ void FrenetPlanner::doPlan(const geometry_msgs::PoseStamped& in_current_pose,
  
 }
 
-bool FrenetPlanner::getTrajectory(
+bool FrenetPlanner::generateTrajectory(
     const std::vector<Point>& lane_points,
     const std::vector<autoware_msgs::Waypoint>& reference_waypoints,
     const FrenetPoint& origin_frenet_point,
@@ -306,6 +306,7 @@ bool FrenetPlanner::getTrajectory(
   calculated_s = origin_frenet_point.s_state(0);
   
   
+  bool is_valid_trjectory = true;
   // sampling waypoint
   // for(double i = dt_for_sampling_points; i <= time_horizon; i+=dt_for_sampling_points)
   for(double i = dt_for_sampling_points; i <= time_horizon; i+=dt_for_sampling_points)
@@ -322,7 +323,12 @@ bool FrenetPlanner::getTrajectory(
     calculated_s_a = 2*s_v_c12(1) + 6*s_v_c34(0)*i + 12*s_v_c34(1)*i*i;
     calculated_s_v = s_v_c12(0) + 2*s_v_c12(1)*i + 3*s_v_c34(0)*i*i + 4*s_v_c34(1)*i*i*i;
     calculated_s += calculated_s_v * dt_for_sampling_points;
-      
+    
+    //TODO: param/variable
+    if(std::abs(calculated_d_j) > 1.0 || std::abs(calculated_s_j) > 3.0)
+    {
+      is_valid_trjectory = false;
+    }
     
     
     FrenetPoint calculated_frenet_point;
@@ -344,7 +350,7 @@ bool FrenetPlanner::getTrajectory(
     trajectory.trajectory_points.waypoints.push_back(waypoint);
   }
   trajectory.required_time = time_horizon;
-  return true;
+  return is_valid_trjectory;
 }
 
 
@@ -685,7 +691,7 @@ bool FrenetPlanner::selectBestTrajectory(
     geometry_msgs::Point last_trajecotry_point = trajectory.trajectory_points.waypoints.back().pose.pose.position;
     geometry_msgs::Point reference_point = kept_reference_point->cartesian_point;
     double distance = calculate2DDistace(last_trajecotry_point, reference_point);
-    std::cerr << "distance " << distance << std::endl;
+    // std::cerr << "distance " << distance << std::endl;
     if(distance < radius_from_reference_point_for_valid_trajectory_)
     {
       subset_trajectories.push_back(trajectory);
@@ -702,6 +708,8 @@ bool FrenetPlanner::selectBestTrajectory(
   std::vector<double> debug_last_waypoints_actual_d;
   std::vector<double> jerk_costs;
   std::vector<double> required_time_costs;
+  std::vector<double> debug_max_s_jerk;
+  std::vector<double> debug_max_d_jerk;
   double sum_ref_waypoints_costs = 0;
   double sum_last_waypoints_costs = 0;
   double sum_jerk_costs = 0;
@@ -711,6 +719,8 @@ bool FrenetPlanner::selectBestTrajectory(
     //calculate cost with reference waypoints
     double ref_waypoints_cost = 0;
     double jerk_cost = 0;
+    std::vector<double> debug_s_jerks;
+    std::vector<double> debug_d_jerks;
     for(size_t i = 0; i < subset_reference_waypoints.size(); i++)
     {
       geometry_msgs::Point reference_point = subset_reference_waypoints[i].pose.pose.position;
@@ -728,12 +738,14 @@ bool FrenetPlanner::selectBestTrajectory(
                trajectory.frenet_trajectory_points[nearest_trajectory_point_index];
       jerk_cost += std::abs(nearest_frenet_point.s_state[3]) + 
                   std::abs(nearest_frenet_point.d_state[3]);
-      
-      // std::cerr << "ref "<< reference_point.x << " " << reference_point.y << std::endl;
-      // std::cerr << "nearest traj "<< nearest_trajectory_point.pose.pose.position.x << " " << nearest_trajectory_point.pose.pose.position.y << std::endl;
-      // std::cerr << "dist " << dist << std::endl;
+      debug_s_jerks.push_back(nearest_frenet_point.s_state(3));
+      debug_d_jerks.push_back(nearest_frenet_point.d_state(3));
+      // std::cerr << "jerk s d " << nearest_frenet_point.s_state(3) << " "
+      //                          << nearest_frenet_point.d_state(3) << std::endl;
       ref_waypoints_cost += dist;
     }
+    debug_max_s_jerk.push_back(*std::max_element(debug_s_jerks.begin(), debug_s_jerks.end()));
+    debug_max_d_jerk.push_back(*std::max_element(debug_d_jerks.begin(), debug_d_jerks.end()));
     // std::cerr << "sum jerk " << jerk_cost << std::endl;
     jerk_costs.push_back(jerk_cost);
     sum_jerk_costs += jerk_cost;
@@ -751,8 +763,8 @@ bool FrenetPlanner::selectBestTrajectory(
     FrenetPoint frenet_point_at_time_horizon = trajectory.frenet_trajectory_points.back();
     double ref_last_waypoint_cost = 
     std::pow(frenet_point_at_time_horizon.d_state(0) - kept_reference_point->frenet_point.d_state(0), 2) + 
-    std::pow(frenet_point_at_time_horizon.s_state(0) - kept_reference_point->frenet_point.s_state(0), 2);
-    // std::pow(frenet_point_at_time_horizon.s_state(1) - kept_reference_point->frenet_point.s_state(1), 2);
+    std::pow(frenet_point_at_time_horizon.s_state(0) - kept_reference_point->frenet_point.s_state(0), 2) +
+    std::pow(frenet_point_at_time_horizon.s_state(1) - kept_reference_point->frenet_point.s_state(1), 2);
     
     // double ref_last_waypoint_cost = 
     // std::pow(frenet_point_at_time_horizon.d_state(0) - kept_reference_point->frenet_point.d_state(0), 2); 
@@ -843,6 +855,8 @@ bool FrenetPlanner::selectBestTrajectory(
     std::cerr << "act las " << ref_last_waypoints_costs[index]
               << " act jer "<< jerk_costs[index]
               << " act tim "<< required_time_costs[index]<<std::endl;
+    std::cerr << "max s jer" << debug_max_s_jerk[index] << 
+                 "max d jer" << debug_max_d_jerk[index] << std::endl;
     bool is_collision_free = true;
     if(objects_ptr)
     {
@@ -1017,7 +1031,7 @@ bool FrenetPlanner::generateNewReferencePoint(
     std::cerr << "target_ref frenet " << default_reference_frenet_point.s_state << std::endl;
     double time_horizon = 8.0;
     Trajectory trajectory;
-    getTrajectory(lane_points,
+    generateTrajectory(lane_points,
                   reference_waypoints,
                   current_reference_point.frenet_point,
                   default_reference_frenet_point,
@@ -1114,7 +1128,7 @@ bool FrenetPlanner::generateNewReferencePoint(
       offset_reference_frenet_point = default_reference_frenet_point;
       offset_reference_frenet_point.d_state(0) += lateral_offset;
       Trajectory trajectory;
-      getTrajectory(lane_points,
+      generateTrajectory(lane_points,
                     reference_waypoints,
                     current_reference_point.frenet_point,
                     offset_reference_frenet_point,
@@ -1584,19 +1598,25 @@ bool FrenetPlanner::drawTrajectories(
           frenet_target_point.s_state = target_s;
           double target_time_horizon = reference_point.time_horizon + time_horizon_offset;
           Trajectory trajectory;
-          getTrajectory(
+          if(generateTrajectory(
               lane_points,
               reference_waypoints,
               frenet_current_point,
               frenet_target_point,
               target_time_horizon,
               dt_for_sampling_points_,
-              trajectory);
-          trajectories.push_back(trajectory);
+              trajectory))
+          {
+            trajectories.push_back(trajectory);
+          }
           out_debug_trajectories.push_back(trajectory.trajectory_points);
         }
       }
     }
+  }
+  if(trajectories.size()==0)
+  {
+    std::cerr << "ERROR: no trajectory generated in drawTrajectories; please adjust jerk threshold"  << std::endl;
   }
 }
 
