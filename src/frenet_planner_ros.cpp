@@ -29,8 +29,6 @@
 #include <tf/transform_datatypes.h>
 
 
-#include <grid_map_ros/GridMapRosConverter.hpp>
-
 #include <autoware_msgs/Lane.h>
 #include <autoware_msgs/DetectedObjectArray.h>
 

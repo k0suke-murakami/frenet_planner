@@ -13,7 +13,6 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   std_msgs
   tf2_ros
-  grid_map_ros
   autoware_msgs
   vector_map
 )
@@ -25,7 +24,6 @@ catkin_package(
   roscpp
   std_msgs
   tf2_ros
-  grid_map_ros
   autoware_msgs
   vector_map
 )
