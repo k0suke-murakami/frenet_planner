@@ -58,7 +58,7 @@ FrenetPlanner::FrenetPlanner(
   double diff_waypoints_coef,
   double diff_last_waypoint_coef,
   double lookahead_distance_per_ms_for_reference_point,
-  double converge_distance_per_ms_for_stopline):
+  double converge_distance_per_ms_for_stop):
 initial_velocity_ms_(initial_velocity_ms),
 velcity_ms_before_obstalcle_(velocity_ms_before_obstalcle),
 distance_before_obstalcle_(distance_before_obstalcle),
@@ -67,10 +67,10 @@ min_lateral_referencing_offset_for_avoidance_(min_lateral_referencing_offset_for
 max_lateral_referencing_offset_for_avoidance_(max_lateral_referencing_offset_for_avoidance),
 diff_waypoints_coef_(diff_waypoints_coef),
 diff_last_waypoint_coef_(diff_last_waypoint_coef),
-lookahead_distance_per_ms_for_reference_point_(7.0),
+lookahead_distance_per_ms_for_reference_point_(lookahead_distance_per_ms_for_reference_point),
 minimum_lookahead_distance_for_reference_point_(12.0),
 lookahead_distance_for_reference_point_(minimum_lookahead_distance_for_reference_point_),
-converge_distance_per_ms_for_stopline_(8.5),
+converge_distance_per_ms_for_stop_(converge_distance_per_ms_for_stop),
 dt_for_sampling_points_(0.5)
 {
 }
@@ -1899,7 +1899,7 @@ bool FrenetPlanner::getNextOriginPointAndReferencePoint(
     double distance = calculate2DDistace(kept_next_reference_point->cartesian_point,
                                          kept_current_reference_point->cartesian_point);
     const double ego_linear_velocity = ego_waypoint.twist.twist.linear.x;
-    const double converge_distance = converge_distance_per_ms_for_stopline_ *ego_linear_velocity;
+    const double converge_distance = converge_distance_per_ms_for_stop_ *ego_linear_velocity;
     std::cerr << "distance " << distance  << std::endl;
     std::cerr << "converge distance " << converge_distance << std::endl;
     if(distance  < converge_distance)

@@ -60,7 +60,7 @@ FrenetPlannerROS::FrenetPlannerROS()
   double cost_diff_waypoints_coef;
   double cost_diff_last_waypoint_coef;
   double lookahead_distance_per_kmh_for_reference_point;
-  double converge_distance_per_kmh_for_stopline;
+  double converge_distance_per_kmh_for_stop;
   
   private_nh_.param<double>("initial_velocity_kmh", initial_velocity_kmh, 2.1);
   private_nh_.param<double>("velcity_kmh_before_obstalcle", velcity_kmh_before_obstalcle, 1.0);
@@ -71,12 +71,12 @@ FrenetPlannerROS::FrenetPlannerROS()
   private_nh_.param<double>("cost_diff_waypoints_coef", cost_diff_waypoints_coef, 0.0);
   private_nh_.param<double>("cost_diff_last_waypoint_coef", cost_diff_last_waypoint_coef, 1.0);
   private_nh_.param<double>("lookahead_distance_per_kmh_for_reference_point", lookahead_distance_per_kmh_for_reference_point, 2.0);
-  private_nh_.param<double>("converge_distance_per_kmh_for_stopline", converge_distance_per_kmh_for_stopline, 2.36);
+  private_nh_.param<double>("converge_distance_per_kmh_for_stop", converge_distance_per_kmh_for_stop, 2.36);
   const double kmh2ms = 0.2778;
   const double initial_velocity_ms = initial_velocity_kmh * kmh2ms;
   const double velocity_ms_before_obstacle = velcity_kmh_before_obstalcle * kmh2ms;
   double lookahead_distance_per_ms_for_reference_point = lookahead_distance_per_kmh_for_reference_point/kmh2ms;
-  double converge_distance_per_ms_for_stopline = converge_distance_per_kmh_for_stopline/kmh2ms;
+  double converge_distance_per_ms_for_stop = converge_distance_per_kmh_for_stop/kmh2ms;
   frenet_planner_ptr_.reset(
     new FrenetPlanner(
         initial_velocity_ms,
@@ -88,7 +88,7 @@ FrenetPlannerROS::FrenetPlannerROS()
         cost_diff_waypoints_coef,
         cost_diff_last_waypoint_coef,
         lookahead_distance_per_ms_for_reference_point,
-        converge_distance_per_ms_for_stopline));
+        converge_distance_per_ms_for_stop));
   // TODO: assume that vectormap is already published when constructing FrenetPlannerROS
   if(!use_global_waypoints_as_center_line_)
   {

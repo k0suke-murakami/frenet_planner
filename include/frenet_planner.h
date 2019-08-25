@@ -127,7 +127,7 @@ private:
   double minimum_lookahead_distance_for_reference_point_;
   double lookahead_distance_for_reference_point_;
   
-  double converge_distance_per_ms_for_stopline_;
+  double converge_distance_per_ms_for_stop_;
   
   double dt_for_sampling_points_;
   // TODO: think better name previous_best_trajectoy?
