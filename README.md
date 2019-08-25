@@ -13,7 +13,7 @@
 * From a sourced terminal:
 
     - `roslaunch frenet_planner frenet_planner.launch`
-    - `roslaunch frenet_planner frenet_planner.launch initial_velocity_kmh:=2.1 velocity_before_obstalce_kmh:=1.0 distance_before_obstalce:=7.0 obstacle_radius_from_center_point:=3.0 min_lateral_referencing_offset_for_avoidance:=5.0 max_lateral_referencing_offset_for_avoidance:=8.0 cost_diff_waypoints_coef:=0.0 cost_diff_last_waypoint_coef:=1.0`
+    - `roslaunch frenet_planner frenet_planner.launch initial_velocity_kmh:=2.1 velocity_kmh_before_obstalce:=1.0 distance_before_obstalce:=7.0 obstacle_radius_from_center_point:=3.0 min_lateral_referencing_offset_for_avoidance:=5.0 max_lateral_referencing_offset_for_avoidance:=8.0 cost_diff_waypoints_coef:=0.0 cost_diff_last_waypoint_coef:=1.0`
 
 
 ### Parameters
@@ -23,7 +23,7 @@ Launch file available parameters:
 |Parameter| Type| Description|
 ----------|-----|--------
 |`initial_velocity_kmh`|*Double* |Generate a trajectory which have this linear veocity at the first waypoint. Unit is `kmh`. Default `2.1`.|
-|`velocity_before_obstalce_kmh`|*Double*|Target decelerated velocity when confronting a obstale. Unit is `kmh`. Default `1.0`.|
+|`velocity_kmh_before_obstalce`|*Double*|Target decelerated velocity when confronting a obstale. Unit is `kmh`. Default `1.0`.|
 |`distance_before_obstacle`|*Double*|Target keep-away distance when facing a obstalce. Unit is `m`. Default `7.0`.|
 |`obstalce_radius_from_center_point`|*Double*|Radius using for collision check. Unit is `m`. Default `3.0`.|
 |`min_latetal_referencing_offset_for_avoidance`|*Double*|Minimum lateral offset for a reference point when performing an avoiding manuever. Unit is `m`. Default `5.0`.|

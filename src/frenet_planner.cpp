@@ -50,15 +50,17 @@ geometry_msgs::Point transformToRelativeCoordinate2D(const geometry_msgs::Point 
 //does not consider time axis motion of ego vehicle
 FrenetPlanner::FrenetPlanner(
   double initial_velocity_ms,
-  double velocity_before_obstalcle_ms,
+  double velocity_ms_before_obstalcle,
   double distance_before_obstalcle,
   double obstacle_radius_from_center_point,
   double min_lateral_referencing_offset_for_avoidance,
   double max_lateral_referencing_offset_for_avoidance,
   double diff_waypoints_coef,
-  double diff_last_waypoint_coef):
-initial_velocity_m_s_(initial_velocity_ms),
-velcity_before_obstalcle_m_s_(velocity_before_obstalcle_ms),
+  double diff_last_waypoint_coef,
+  double lookahead_distance_per_ms_for_reference_point,
+  double converge_distance_per_ms_for_stopline):
+initial_velocity_ms_(initial_velocity_ms),
+velcity_ms_before_obstalcle_(velocity_ms_before_obstalcle),
 distance_before_obstalcle_(distance_before_obstalcle),
 obstacle_radius_from_center_point_(obstacle_radius_from_center_point),
 min_lateral_referencing_offset_for_avoidance_(min_lateral_referencing_offset_for_avoidance),
@@ -1015,7 +1017,7 @@ bool FrenetPlanner::generateNewReferencePoint(
       
       convertWaypoint2FrenetPoint(
         tmp_reference_cartesian_point,
-        velcity_before_obstalcle_m_s_,
+        velcity_ms_before_obstalcle_,
         lane_points,
         reference_frenet_point);
       reference_type_info.type = ReferenceType::Obstacle;
@@ -1550,7 +1552,7 @@ bool FrenetPlanner::getCurrentOriginPointAndReferencePoint(
                        nearest_waypoint);
     convertWaypoint2FrenetPoint(
       nearest_waypoint.pose.pose.position,
-      initial_velocity_m_s_,
+      initial_velocity_ms_,
       lane_points,
       frenet_point);
     origin_frenet_point = frenet_point;
@@ -1842,7 +1844,7 @@ bool FrenetPlanner::getNextOriginPointAndReferencePoint(
         std::cerr << "min_dist " << min_distance << std::endl;
       }
       FrenetPoint tmp_frenet_point = kept_current_trajectory->frenet_trajectory_points[reference_point_index];
-      tmp_frenet_point.s_state(1) = velcity_before_obstalcle_m_s_;
+      tmp_frenet_point.s_state(1) = velcity_ms_before_obstalcle_;
       kept_next_reference_point->frenet_point = tmp_frenet_point;
       kept_next_reference_point->cartesian_point = waypoints[reference_point_index].pose.pose.position;
       size_t current_trajectory_size = kept_current_trajectory->frenet_trajectory_points.size();

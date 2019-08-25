@@ -1,6 +1,6 @@
 <launch>
   <arg name="initial_velocity_kmh" default="2.1" />
-  <arg name="velcity_before_obstalcle_kmh" default="1.0" />
+  <arg name="velcity_kmh_before_obstalcle" default="1.0" />
   <arg name="distance_before_obstacle" default="7.0" />
   <arg name="obstalce_radius_from_center_point" default="3.0" />
   <arg name="min_lateral_referencing_offset_for_avoidance" default="5.0" />
@@ -9,7 +9,7 @@
   <arg name="cost_diff_last_waypoint_coef" default="1.0"/>
   <node pkg="frenet_planner" type="frenet_planner" name="frenet_planner" output="screen">
     <param name="initial_velocity_kmh"  value="$(arg initial_velocity_kmh)" />
-    <param name="velcity_before_obstalcle_kmh"        value="$(arg velcity_before_obstalcle_kmh)" />
+    <param name="velcity_kmh_before_obstalcle"        value="$(arg velcity_kmh_before_obstalcle)" />
     <param name="distance_before_obstacle"   value="$(arg distance_before_obstacle)" />
     <param name="obstalce_radius_from_center_point"         value="$(arg obstalce_radius_from_center_point)" />
     <param name="min_lateral_referencing_offset_for_avoidance"   value="$(arg min_lateral_referencing_offset_for_avoidance)" />

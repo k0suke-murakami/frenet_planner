@@ -94,7 +94,9 @@ public:
     double min_lateral_referencing_offset_for_avoidance,
     double max_lateral_referencing_offset_for_avoidance,
     double diff_waypoints_coef,
-    double diff_last_waypoint_coef);
+    double diff_last_waypoint_coef,
+    double lookahead_distance_per_ms_for_reference_point,
+    double converge_distance_per_ms_for_stopline);
   ~FrenetPlanner();
   
   
@@ -112,8 +114,8 @@ public:
 private:
   
   //initialize with rosparam
-  double initial_velocity_m_s_;
-  double velcity_before_obstalcle_m_s_;
+  double initial_velocity_ms_;
+  double velcity_ms_before_obstalcle_;
   double distance_before_obstalcle_;
   double obstacle_radius_from_center_point_;
   double min_lateral_referencing_offset_for_avoidance_;
