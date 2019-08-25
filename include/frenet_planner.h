@@ -121,9 +121,11 @@ private:
   double diff_waypoints_coef_;
   double diff_last_waypoint_coef_;
   
-  double lookahead_distance_ratio_for_reference_point_;
+  double lookahead_distance_per_ms_for_reference_point_;
   double minimum_lookahead_distance_for_reference_point_;
   double lookahead_distance_for_reference_point_;
+  
+  double converge_distance_per_ms_for_stopline_;
   
   double dt_for_sampling_points_;
   // TODO: think better name previous_best_trajectoy?
@@ -261,7 +263,7 @@ private:
               std::vector<Trajectory>& trajectories,
               std::vector<autoware_msgs::Lane>& out_debug_trajectories);
   
-  bool getOriginPointAndReferencePoint(
+  bool getCurrentOriginPointAndReferencePoint(
     const geometry_msgs::Pose& ego_pose,
     const double ego_linear_velocity,
     const std::vector<autoware_msgs::Waypoint>& reference_waypoints,
@@ -272,7 +274,7 @@ private:
     std::unique_ptr<Trajectory>& kept_current_trajectory);
     
   bool getNextOriginPointAndReferencePoint(
-    const geometry_msgs::Pose& ego_pose,
+    const autoware_msgs::Waypoint& ego_waypoint,
     const double origin_linear_velocity,    
     const std::vector<autoware_msgs::Waypoint>& reference_waypoints,
     const std::vector<Point>& lane_points,

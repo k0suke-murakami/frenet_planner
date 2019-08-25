@@ -65,9 +65,10 @@ min_lateral_referencing_offset_for_avoidance_(min_lateral_referencing_offset_for
 max_lateral_referencing_offset_for_avoidance_(max_lateral_referencing_offset_for_avoidance),
 diff_waypoints_coef_(diff_waypoints_coef),
 diff_last_waypoint_coef_(diff_last_waypoint_coef),
-lookahead_distance_ratio_for_reference_point_(7.0),
+lookahead_distance_per_ms_for_reference_point_(7.0),
 minimum_lookahead_distance_for_reference_point_(12.0),
 lookahead_distance_for_reference_point_(minimum_lookahead_distance_for_reference_point_),
+converge_distance_per_ms_for_stopline_(8.5),
 dt_for_sampling_points_(0.5)
 {
 }
@@ -91,7 +92,7 @@ void FrenetPlanner::doPlan(const geometry_msgs::PoseStamped& in_current_pose,
   //TODO: think the interface between the components
   std::cerr << "start process of doPlan" << std::endl;
   FrenetPoint origin_frenet_point;
-  if(getOriginPointAndReferencePoint(
+  if(getCurrentOriginPointAndReferencePoint(
      in_current_pose.pose,
      in_current_twist.twist.linear.x,
      in_reference_waypoints,
@@ -129,8 +130,11 @@ void FrenetPlanner::doPlan(const geometry_msgs::PoseStamped& in_current_pose,
     out_reference_points.push_back(kept_current_reference_point_->cartesian_point);
   }
   
+  autoware_msgs::Waypoint ego_waypoint;
+  ego_waypoint.pose.pose = in_current_pose.pose;
+  ego_waypoint.twist.twist = in_current_twist.twist;
   FrenetPoint next_origin_point;  
-  if(getNextOriginPointAndReferencePoint(in_current_pose.pose,
+  if(getNextOriginPointAndReferencePoint(ego_waypoint,
                         kept_current_trajectory_->trajectory_points.waypoints.back().twist.twist.linear.x,
                         in_reference_waypoints,
                         in_nearest_lane_points,
@@ -875,7 +879,7 @@ bool FrenetPlanner::generateNewReferencePoint(
   //change look ahead distance based on current velocity
   // const double lookahead_distance_ratio = 7.0;
   double lookahead_distance = fabs(origin_linear_velocity) * 
-                             lookahead_distance_ratio_for_reference_point_;
+                             lookahead_distance_per_ms_for_reference_point_;
   // const double minimum_lookahed_distance = 12.0;
   if(lookahead_distance < minimum_lookahead_distance_for_reference_point_)
   {
@@ -1500,7 +1504,7 @@ bool FrenetPlanner::drawTrajectories(
 
 //TODO: gross interface; currently pass reference point if true, pass tajectory if false
 // you gotta think better way
-bool FrenetPlanner::getOriginPointAndReferencePoint(
+bool FrenetPlanner::getCurrentOriginPointAndReferencePoint(
     const geometry_msgs::Pose& ego_pose,
     const double ego_linear_velocity,
     const std::vector<autoware_msgs::Waypoint>& reference_waypoints,    
@@ -1564,7 +1568,7 @@ bool FrenetPlanner::getOriginPointAndReferencePoint(
 }
 
 bool FrenetPlanner::getNextOriginPointAndReferencePoint(
-    const geometry_msgs::Pose& ego_pose,
+    const autoware_msgs::Waypoint& ego_waypoint,
     const double origin_linear_velocity,
     const std::vector<autoware_msgs::Waypoint>& reference_waypoints,
     const std::vector<Point>& lane_points,
@@ -1576,7 +1580,7 @@ bool FrenetPlanner::getNextOriginPointAndReferencePoint(
     FrenetPoint& next_origin_point)
 {
   //validity check for current referencer point
-  if(!isReferencePointValid(ego_pose,
+  if(!isReferencePointValid(ego_waypoint.pose.pose,
                            kept_current_reference_point->cartesian_point,
                            reference_waypoints.back().pose.pose.position))
   {
@@ -1630,7 +1634,7 @@ bool FrenetPlanner::getNextOriginPointAndReferencePoint(
       //TODO: make method for this
       // check if current_point is behingd ego 
       geometry_msgs::Point relative_cartesian_point =  
-      transformToRelativeCoordinate2D(waypoint.pose.pose.position, ego_pose);
+      transformToRelativeCoordinate2D(waypoint.pose.pose.position, ego_waypoint.pose.pose);
       double angle = std::atan2(relative_cartesian_point.y, relative_cartesian_point.x);
       //       |
       //       | abs(angle)<PI/2
@@ -1680,7 +1684,7 @@ bool FrenetPlanner::getNextOriginPointAndReferencePoint(
       //TODO: make method for this
       // check if current_point is behingd ego 
       geometry_msgs::Point relative_cartesian_point =  
-      transformToRelativeCoordinate2D(waypoint.pose.pose.position, ego_pose);
+      transformToRelativeCoordinate2D(waypoint.pose.pose.position, ego_waypoint.pose.pose);
       double angle = std::atan2(relative_cartesian_point.y, relative_cartesian_point.x);
       //       |
       //       | abs(angle)<PI/2
@@ -1743,7 +1747,7 @@ bool FrenetPlanner::getNextOriginPointAndReferencePoint(
   }
 
   //update or generate or nothing especially for next reference point
-  double distance = calculate2DDistace(ego_pose.position,
+  double distance = calculate2DDistace(ego_waypoint.pose.pose.position,
                                        kept_current_reference_point->cartesian_point);
   bool is_new_reference_point = false;
   if(kept_next_reference_point)
@@ -1797,7 +1801,7 @@ bool FrenetPlanner::getNextOriginPointAndReferencePoint(
   
   std::cerr << "next reference type " << static_cast<int>(kept_next_reference_point->reference_type_info.type) << std::endl;
   std::cerr << "next reference v " << kept_next_reference_point->frenet_point.s_state(1) << std::endl;
-  // //validity check for next reference point
+  // validity check for next reference point and current reference point by utilizing current trajectory
   if(kept_next_reference_point->reference_type_info.type == 
      ReferenceType::Obstacle)
   {
@@ -1884,75 +1888,67 @@ bool FrenetPlanner::getNextOriginPointAndReferencePoint(
   }
   
   
-  //offset only for stopping waypoint
-  //validity check for current_reference_point 
-  //if new_reference_point is too close to converge to 0
-  // if(kept_next_reference_point->reference_type_info.type 
-  //    == ReferenceType::Obstacle ||
-  //    kept_next_reference_point->reference_type_info.type
-  //    == ReferenceType::StopLine)
-  // {
-  //   Trajectory trajectory;
-  //   getTrajectory(lane_points,
-  //                 reference_waypoints,
-  //                 next_origin_point,
-  //                 kept_next_reference_point->frenet_point,
-  //                 kept_next_reference_point->time_horizon,
-  //                 dt_for_sampling_points_,
-  //                 trajectory);
-                  
-  //   //triggered only if last point of actual trajectory is 
-  //   //overshot compared with reference point
-  //   double reference_s_position = kept_next_reference_point->frenet_point.s_state(0);
-  //   double acutual_s_positon = trajectory.frenet_trajectory_points.back().s_state(0);
-  //   if(reference_s_position < acutual_s_positon)
-  //   {
-  //     std::cerr << "offseeeeeeeeeeeeeeeeeeeeeeet"  << std::endl;
-  //     double min_dist = 99999;
-  //     size_t offset_index = 0;
-  //     bool is_offset = false;
-  //     const std::vector<autoware_msgs::Waypoint> waypoints = 
-  //     kept_current_trajectory->trajectory_points.waypoints;
-  //     std::cerr << "num wps " << waypoints.size() << std::endl;
-  //     for(size_t i = 0; i < waypoints.size(); i++)
-  //     {
-  //       double dist = calculate2DDistace(waypoints[i].pose.pose.position,
-  //                                       kept_next_reference_point->cartesian_point);
-  //       //TODO: calculate this value by constrained optimization
-  //       const double minimum_distance_to_converge = 10;
-  //       if(dist < min_dist && dist > minimum_distance_to_converge)
-  //       {
-  //         min_dist = dist;
-  //         offset_index = i;
-  //         is_offset = true;
-  //       }
-  //     }
+  // // offset only for stopping waypoint
+  // // validity check for current_reference_point 
+  // // if new_reference_point is too close to converge to 0
+  if(kept_next_reference_point->reference_type_info.type
+     == ReferenceType::StopLine)
+  {
+    double distance = calculate2DDistace(kept_next_reference_point->cartesian_point,
+                                         kept_current_reference_point->cartesian_point);
+    const double ego_linear_velocity = ego_waypoint.twist.twist.linear.x;
+    const double converge_distance = converge_distance_per_ms_for_stopline_ *ego_linear_velocity;
+    std::cerr << "distance " << distance  << std::endl;
+    std::cerr << "converge distance " << converge_distance << std::endl;
+    if(distance  < converge_distance)
+    {
+      std::cerr << "offseeeeeeeeeeeeeeeeeeeeeeet"  << std::endl;
+      double min_dist = 99999;
+      size_t offset_index = 0;
+      bool is_offset = false;
+      const std::vector<autoware_msgs::Waypoint> waypoints = 
+      kept_current_trajectory->trajectory_points.waypoints;
+      std::cerr << "num wps " << waypoints.size() << std::endl;
+      for(size_t i = 0; i < waypoints.size(); i++)
+      {
+        double dist = calculate2DDistace(waypoints[i].pose.pose.position,
+                                        kept_next_reference_point->cartesian_point);
+        //TODO: calculate this value by constrained optimization
+        // const double minimum_distance_to_converge = 10;
+        if(dist < min_dist && dist > converge_distance)
+        {
+          std::cerr << "actual distance " << dist << std::endl;
+          min_dist = dist;
+          offset_index = i;
+          is_offset = true;
+        }
+      }
       
-  //     if(!is_offset)
-  //     {
-  //       offset_index = 0;
-  //     }
+      if(!is_offset)
+      {
+        offset_index = 0;
+      }
       
-  //     kept_current_reference_point->cartesian_point = 
-  //       kept_current_trajectory->trajectory_points.waypoints[offset_index].pose.pose.position;
-  //     kept_current_reference_point->frenet_point = 
-  //       kept_current_trajectory->frenet_trajectory_points[offset_index];
-  //     size_t num_kept_current_waypoints = kept_current_trajectory->trajectory_points.waypoints.size();
-  //     std::cerr << "num kept current traj  " << num_kept_current_waypoints << std::endl;
-  //     std::cerr << "offset index " << offset_index << std::endl;
-  //     for(size_t i = (num_kept_current_waypoints - 1); i > offset_index; i--)
-  //     {
-  //       kept_current_trajectory->trajectory_points.waypoints.erase(
-  //             kept_current_trajectory->trajectory_points.waypoints.end());
-  //       kept_current_trajectory->frenet_trajectory_points.erase(
-  //         kept_current_trajectory->frenet_trajectory_points.end());
-  //     }
-  //     std::cerr << "after; num kept current traj points " << kept_current_trajectory->trajectory_points.waypoints.size() << std::endl;
-  //     std::cerr << "next origin point " << kept_current_trajectory->frenet_trajectory_points.back().s_state(0) << std::endl;
-  //     next_origin_point = kept_current_trajectory->frenet_trajectory_points.back();
-  //     std::cerr << "next origin s_v " << next_origin_point.s_state(1) << std::endl;
-  //   }
-  // }
+      kept_current_reference_point->cartesian_point = 
+        kept_current_trajectory->trajectory_points.waypoints[offset_index].pose.pose.position;
+      kept_current_reference_point->frenet_point = 
+        kept_current_trajectory->frenet_trajectory_points[offset_index];
+      size_t num_kept_current_waypoints = kept_current_trajectory->trajectory_points.waypoints.size();
+      std::cerr << "num kept current traj  " << num_kept_current_waypoints << std::endl;
+      std::cerr << "offset index " << offset_index << std::endl;
+      for(size_t i = (num_kept_current_waypoints - 1); i > offset_index; i--)
+      {
+        kept_current_trajectory->trajectory_points.waypoints.erase(
+              kept_current_trajectory->trajectory_points.waypoints.end());
+        kept_current_trajectory->frenet_trajectory_points.erase(
+          kept_current_trajectory->frenet_trajectory_points.end());
+      }
+      std::cerr << "after; num kept current traj points " << kept_current_trajectory->trajectory_points.waypoints.size() << std::endl;
+      std::cerr << "next origin point " << kept_current_trajectory->frenet_trajectory_points.back().s_state(0) << std::endl;
+      next_origin_point = kept_current_trajectory->frenet_trajectory_points.back();
+      std::cerr << "next origin s_v " << next_origin_point.s_state(1) << std::endl;
+    }
+  }
   return is_new_reference_point;
 }
 
