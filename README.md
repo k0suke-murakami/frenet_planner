@@ -31,7 +31,7 @@ Launch file available parameters:
 |`cost_diff_waypoints_coef`|*Double*|Coefficient for cost(running cost) calculation with reference waypoints. Scale from 0.0 to 1.0. Default `0.0`.|
 |`cost_diff_last_waypoint_coef`|*Double*|Coefficient for cost(terminal cost) calculation with last reference waypoint. Scale from 0.0 to 1.0. Default `1.0`.|
 |`lookahead_distance_per_kmh_for_reference_point`|*Double*|Ratio for deciding referece point based on current_velocity. Unit is `m/kmh`. Default `2.0`.|
-|`converge_distance_per_kmh_for_stop`|*Double*|Ratio for deciding a distance at which starting the deceleration for stopline. Unit is `m/kmh`. Default `2.36`.|
+|`converge_distance_per_kmh_for_stop`|*Double*|Ratio for deciding a distance at which starting the deceleration for stop. Unit is `m/kmh`. Default `2.36`.|
 
 
 ### Subscribed topics
