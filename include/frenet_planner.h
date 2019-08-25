@@ -121,6 +121,7 @@ private:
   double max_lateral_referencing_offset_for_avoidance_;
   double diff_waypoints_coef_;
   double diff_last_waypoint_coef_;
+  double jerk_cost_coef_;
   
   double lookahead_distance_per_ms_for_reference_point_;
   double minimum_lookahead_distance_for_reference_point_;

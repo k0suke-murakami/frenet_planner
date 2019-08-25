@@ -67,11 +67,12 @@ min_lateral_referencing_offset_for_avoidance_(min_lateral_referencing_offset_for
 max_lateral_referencing_offset_for_avoidance_(max_lateral_referencing_offset_for_avoidance),
 diff_waypoints_coef_(diff_waypoints_coef),
 diff_last_waypoint_coef_(diff_last_waypoint_coef),
+jerk_cost_coef_(1.0),
 lookahead_distance_per_ms_for_reference_point_(lookahead_distance_per_ms_for_reference_point),
 minimum_lookahead_distance_for_reference_point_(12.0),
 lookahead_distance_for_reference_point_(minimum_lookahead_distance_for_reference_point_),
 converge_distance_per_ms_for_stop_(converge_distance_per_ms_for_stop),
-radius_from_reference_point_for_valid_trajectory_(3.0),
+radius_from_reference_point_for_valid_trajectory_(5.0),
 dt_for_sampling_points_(0.5)
 {
 }
@@ -682,7 +683,7 @@ bool FrenetPlanner::selectBestTrajectory(
     geometry_msgs::Point last_trajecotry_point = trajectory.trajectory_points.waypoints.back().pose.pose.position;
     geometry_msgs::Point reference_point = kept_reference_point->cartesian_point;
     double distance = calculate2DDistace(last_trajecotry_point, reference_point);
-    //TODO: param
+    std::cerr << "distance " << distance << std::endl;
     if(distance < radius_from_reference_point_for_valid_trajectory_)
     {
       subset_trajectories.push_back(trajectory);
@@ -697,9 +698,10 @@ bool FrenetPlanner::selectBestTrajectory(
   std::vector<double> debug_last_waypoints_costs_d;
   std::vector<double> debug_last_waypoints_actual_s;
   std::vector<double> debug_last_waypoints_actual_d;
-  std::vector<double> sum_jerk_costs;
+  std::vector<double> jerk_costs;
   double sum_ref_waypoints_costs = 0;
   double sum_last_waypoints_costs = 0;
+  double sum_jerk_costs = 0;
   for(const auto& trajectory: subset_trajectories)
   {
     //calculate cost with reference waypoints
@@ -721,15 +723,16 @@ bool FrenetPlanner::selectBestTrajectory(
       FrenetPoint nearest_frenet_point = 
                trajectory.frenet_trajectory_points[nearest_trajectory_point_index];
       sum_jerk += std::abs(nearest_frenet_point.s_state[3]) + 
-                        std::abs(nearest_frenet_point.d_state[3]);
+                  std::abs(nearest_frenet_point.d_state[3]);
       
       // std::cerr << "ref "<< reference_point.x << " " << reference_point.y << std::endl;
       // std::cerr << "nearest traj "<< nearest_trajectory_point.pose.pose.position.x << " " << nearest_trajectory_point.pose.pose.position.y << std::endl;
       // std::cerr << "dist " << dist << std::endl;
       ref_waypoints_cost += dist;
     }
-    std::cerr << "sum jerk " << sum_jerk << std::endl;
-    sum_jerk_costs.push_back(sum_jerk);
+    // std::cerr << "sum jerk " << sum_jerk << std::endl;
+    jerk_costs.push_back(sum_jerk);
+    sum_jerk_costs += sum_jerk;
     ref_waypoints_costs.push_back(ref_waypoints_cost);
     sum_ref_waypoints_costs += ref_waypoints_cost;
     
@@ -750,9 +753,9 @@ bool FrenetPlanner::selectBestTrajectory(
       frenet_point_at_time_horizon.s_state(0) - kept_reference_point->frenet_point.s_state(0));
     debug_last_waypoints_actual_d.push_back(frenet_point_at_time_horizon.d_state(0));
     debug_last_waypoints_actual_s.push_back(frenet_point_at_time_horizon.s_state(0));
-    std::cerr << "diff s " <<  frenet_point_at_time_horizon.s_state(0) - kept_reference_point->frenet_point.s_state(0)<< std::endl;
+    // std::cerr << "diff s " <<  frenet_point_at_time_horizon.s_state(0) - kept_reference_point->frenet_point.s_state(0)<< std::endl;
     // std::cerr << "diff sv " <<  frenet_point_at_time_horizon.s_state(1) - kept_reference_point->frenet_point.s_state(1)<< std::endl;
-    std::cerr << "diff d " <<  frenet_point_at_time_horizon.d_state(0) - kept_reference_point->frenet_point.d_state(0)<< std::endl;
+    // std::cerr << "diff d " <<  frenet_point_at_time_horizon.d_state(0) - kept_reference_point->frenet_point.d_state(0)<< std::endl;
     // std::cerr << "total last wp diff " <<  ref_last_waypoint_cost<< std::endl;
     // std::cerr << "total wps diff " <<  ref_waypoints_cost<< std::endl;
   }
@@ -760,15 +763,19 @@ bool FrenetPlanner::selectBestTrajectory(
   std::vector<double> costs;
   std::vector<double> debug_norm_ref_wps_costs;
   std::vector<double> debug_norm_ref_last_wp_costs;
+  std::vector<double> debug_norm_jerk_costs;
   for(size_t i = 0; i < ref_last_waypoints_costs.size(); i++)
   {
     double normalized_ref_waypoints_cost = ref_waypoints_costs[i]/sum_ref_waypoints_costs;
     double normalized_ref_last_waypoints_cost = ref_last_waypoints_costs[i]/sum_last_waypoints_costs;
+    double normalized_jerk_cost = jerk_costs[i]/sum_jerk_costs;
     double sum_cost = normalized_ref_waypoints_cost*diff_waypoints_coef_ + 
-                      normalized_ref_last_waypoints_cost*diff_last_waypoint_coef_;
+                      normalized_ref_last_waypoints_cost*diff_last_waypoint_coef_+
+                      normalized_jerk_cost*jerk_cost_coef_;
     costs.push_back(sum_cost);
     debug_norm_ref_wps_costs.push_back(normalized_ref_waypoints_cost);
     debug_norm_ref_last_wp_costs.push_back(normalized_ref_last_waypoints_cost);
+    debug_norm_jerk_costs.push_back(normalized_jerk_cost);
     // std::cerr << "norm_ref_wps " << normalized_ref_waypoints_cost
     //           << "norm ref last "<< normalized_ref_last_waypoints_cost
     //           << "sum "<< sum_cost<< std::endl;
@@ -794,7 +801,7 @@ bool FrenetPlanner::selectBestTrajectory(
               << " las cos d "<< debug_last_waypoints_costs_d[index]
               << " act d "<< debug_last_waypoints_actual_d[index]
               << " sum "<< costs[index]<< std::endl;
-    std::cerr << "one of best sum jerk " << sum_jerk_costs[index] << std::endl;
+    std::cerr << "one of best sum jerk " << jerk_costs[index] << std::endl;
     bool is_collision_free = true;
     if(objects_ptr)
     {
@@ -1366,9 +1373,9 @@ bool FrenetPlanner::updateReferencePoint(
     reference_point.longutudinal_sampling_resolution = 0.01;
     reference_point.longutudinal_velocity_max_offset = 0.0;
     reference_point.longutudinal_velocity_sampling_resolution = 0.01;
-    reference_point.time_horizon = 12.0;
-    reference_point.time_horizon_max_offset = 4.0;
-    reference_point.time_horizon_sampling_resolution = 2.0;
+    reference_point.time_horizon = 20.0;
+    reference_point.time_horizon_max_offset = 18.0;
+    reference_point.time_horizon_sampling_resolution = 1.0;
   }
   else
   {
