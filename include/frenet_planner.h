@@ -110,7 +110,8 @@ public:
   
   
 private:
-  double dt_for_sampling_points_;
+  
+  //initialize with rosparam
   double initial_velocity_m_s_;
   double velcity_before_obstalcle_m_s_;
   double distance_before_obstalcle_;
@@ -120,6 +121,11 @@ private:
   double diff_waypoints_coef_;
   double diff_last_waypoint_coef_;
   
+  double lookahead_distance_ratio_for_reference_point_;
+  double minimum_lookahead_distance_for_reference_point_;
+  double lookahead_distance_for_reference_point_;
+  
+  double dt_for_sampling_points_;
   // TODO: think better name previous_best_trajectoy?
   std::unique_ptr<Trajectory> kept_current_trajectory_;
   std::unique_ptr<Trajectory> kept_next_trajectory_;

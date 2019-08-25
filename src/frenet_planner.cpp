@@ -57,7 +57,6 @@ FrenetPlanner::FrenetPlanner(
   double max_lateral_referencing_offset_for_avoidance,
   double diff_waypoints_coef,
   double diff_last_waypoint_coef):
-dt_for_sampling_points_(0.5),
 initial_velocity_m_s_(initial_velocity_ms),
 velcity_before_obstalcle_m_s_(velocity_before_obstalcle_ms),
 distance_before_obstalcle_(distance_before_obstalcle),
@@ -65,7 +64,11 @@ obstacle_radius_from_center_point_(obstacle_radius_from_center_point),
 min_lateral_referencing_offset_for_avoidance_(min_lateral_referencing_offset_for_avoidance),
 max_lateral_referencing_offset_for_avoidance_(max_lateral_referencing_offset_for_avoidance),
 diff_waypoints_coef_(diff_waypoints_coef),
-diff_last_waypoint_coef_(diff_last_waypoint_coef)
+diff_last_waypoint_coef_(diff_last_waypoint_coef),
+lookahead_distance_ratio_for_reference_point_(7.0),
+minimum_lookahead_distance_for_reference_point_(12.0),
+lookahead_distance_for_reference_point_(minimum_lookahead_distance_for_reference_point_),
+dt_for_sampling_points_(0.5)
 {
 }
 
@@ -870,13 +873,15 @@ bool FrenetPlanner::generateNewReferencePoint(
   std::cerr << "----------------------------------------------current reference type " 
   << static_cast<int>(current_reference_point.reference_type_info.type) << std::endl;
   //change look ahead distance based on current velocity
-  const double lookahead_distance_ratio = 4.0;
-  double lookahead_distance = fabs(origin_linear_velocity) * lookahead_distance_ratio;
-  const double minimum_lookahed_distance = 12.0;
-  if(lookahead_distance < minimum_lookahed_distance)
+  // const double lookahead_distance_ratio = 7.0;
+  double lookahead_distance = fabs(origin_linear_velocity) * 
+                             lookahead_distance_ratio_for_reference_point_;
+  // const double minimum_lookahed_distance = 12.0;
+  if(lookahead_distance < minimum_lookahead_distance_for_reference_point_)
   {
-    lookahead_distance = minimum_lookahed_distance;
+    lookahead_distance = minimum_lookahead_distance_for_reference_point_;
   }
+  lookahead_distance_for_reference_point_ = lookahead_distance;
   
   double max_distance = -9999;
   autoware_msgs::Waypoint default_target_waypoint;
@@ -1758,7 +1763,8 @@ bool FrenetPlanner::getNextOriginPointAndReferencePoint(
     }
   }
   //TODO: use of param/variable
-  else if(distance < 10 && !kept_next_reference_point)
+  else if(distance < lookahead_distance_for_reference_point_ && 
+          !kept_next_reference_point)
   {
     std::cerr << "start generating new reference point" << std::endl;
     //make initinal target point
