@@ -48,3 +48,4 @@ Launch file available parameters:
 |Topic|Type|Objective|
 ------|----|---------
 |`/final_waypoints`|`autoware_msgs::Lane`|WIP|
+|`/frenet_planner_debug_markes`|`visualization_msgs::MarkerArray`|WIP|
