@@ -57,6 +57,7 @@ FrenetPlanner::FrenetPlanner(
   double max_lateral_referencing_offset_for_avoidance,
   double diff_waypoints_cost_coef,
   double diff_last_waypoint_cost_coef,
+  double jerk_cost_coef,
   double lookahead_distance_per_ms_for_reference_point,
   double converge_distance_per_ms_for_stop):
 initial_velocity_ms_(initial_velocity_ms),
@@ -67,8 +68,8 @@ min_lateral_referencing_offset_for_avoidance_(min_lateral_referencing_offset_for
 max_lateral_referencing_offset_for_avoidance_(max_lateral_referencing_offset_for_avoidance),
 diff_waypoints_cost_coef_(diff_waypoints_cost_coef),
 diff_last_waypoint_cost_coef_(diff_last_waypoint_cost_coef),
-jerk_cost_coef_(0.25),
-required_time_cost_coef_(1.0),
+jerk_cost_coef_(jerk_cost_coef),
+required_time_cost_coef_(0.0),
 lookahead_distance_per_ms_for_reference_point_(lookahead_distance_per_ms_for_reference_point),
 minimum_lookahead_distance_for_reference_point_(12.0),
 lookahead_distance_for_reference_point_(minimum_lookahead_distance_for_reference_point_),

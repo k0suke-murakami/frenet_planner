@@ -30,6 +30,7 @@ Launch file available parameters:
 |`max_latetal_referencing_offset_for_avoidance`|*Double*|Maximum lateral offset for a reference point when performing an avoiding manuever. Unit is `m`. Default `8.0`.|
 |`cost_diff_waypoints_coef`|*Double*|Coefficient for cost(running cost) calculation with reference waypoints. Scale from 0.0 to 1.0. Default `0.0`.|
 |`cost_diff_last_waypoint_coef`|*Double*|Coefficient for cost(terminal cost) calculation with last reference waypoint. Scale from 0.0 to 1.0. Default `1.0`.|
+|`jerk_cost_coef`|*Double*|Coefficient for cost calculation in terms of jerk. Scale from 0.0 to 1.0. Default `0.25`.|
 |`lookahead_distance_per_kmh_for_reference_point`|*Double*|Ratio for deciding referece point based on current_velocity. Unit is `m/kmh`. Default `2.0`.|
 |`converge_distance_per_kmh_for_stop`|*Double*|Ratio for deciding a distance at which starting the deceleration for stop. Unit is `m/kmh`. Default `2.36`.|
 
