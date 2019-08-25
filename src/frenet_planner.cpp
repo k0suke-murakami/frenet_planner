@@ -672,7 +672,7 @@ bool FrenetPlanner::selectBestTrajectory(
     std::cerr << "nearest origin wp id " << nearest_origin_waypoint_id << std::endl;
     std::cerr << "nearest last wp id " << nearest_last_waypoint_id << std::endl;  
     std::cerr << "ERROR: Could not handle this error in v0.3 getBestTrajectory"  << std::endl;
-    std::cerr << "Recommend to lower distance_before_obstalce_"  << std::endl;
+    std::cerr << "Also, please check if end waypoint(base_waypoints) has 0 linear velocity"  << std::endl;
     kept_reference_point = nullptr;
     kept_best_trajectory = nullptr;
   }
