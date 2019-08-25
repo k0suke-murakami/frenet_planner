@@ -55,8 +55,8 @@ FrenetPlanner::FrenetPlanner(
   double obstacle_radius_from_center_point,
   double min_lateral_referencing_offset_for_avoidance,
   double max_lateral_referencing_offset_for_avoidance,
-  double diff_waypoints_coef,
-  double diff_last_waypoint_coef,
+  double diff_waypoints_cost_coef,
+  double diff_last_waypoint_cost_coef,
   double lookahead_distance_per_ms_for_reference_point,
   double converge_distance_per_ms_for_stop):
 initial_velocity_ms_(initial_velocity_ms),
@@ -65,9 +65,10 @@ distance_before_obstalcle_(distance_before_obstalcle),
 obstacle_radius_from_center_point_(obstacle_radius_from_center_point),
 min_lateral_referencing_offset_for_avoidance_(min_lateral_referencing_offset_for_avoidance),
 max_lateral_referencing_offset_for_avoidance_(max_lateral_referencing_offset_for_avoidance),
-diff_waypoints_coef_(diff_waypoints_coef),
-diff_last_waypoint_coef_(diff_last_waypoint_coef),
-jerk_cost_coef_(1.0),
+diff_waypoints_cost_coef_(diff_waypoints_cost_coef),
+diff_last_waypoint_cost_coef_(diff_last_waypoint_cost_coef),
+jerk_cost_coef_(0.5),
+required_time_cost_coef_(1.0),
 lookahead_distance_per_ms_for_reference_point_(lookahead_distance_per_ms_for_reference_point),
 minimum_lookahead_distance_for_reference_point_(12.0),
 lookahead_distance_for_reference_point_(minimum_lookahead_distance_for_reference_point_),
@@ -342,7 +343,8 @@ bool FrenetPlanner::getTrajectory(
     waypoint.pose.pose.position.z = reference_waypoints.front().pose.pose.position.z;
     trajectory.trajectory_points.waypoints.push_back(waypoint);
   }
-  return false;
+  trajectory.required_time = time_horizon;
+  return true;
 }
 
 
@@ -699,14 +701,16 @@ bool FrenetPlanner::selectBestTrajectory(
   std::vector<double> debug_last_waypoints_actual_s;
   std::vector<double> debug_last_waypoints_actual_d;
   std::vector<double> jerk_costs;
+  std::vector<double> required_time_costs;
   double sum_ref_waypoints_costs = 0;
   double sum_last_waypoints_costs = 0;
   double sum_jerk_costs = 0;
+  double sum_required_time_costs = 0;
   for(const auto& trajectory: subset_trajectories)
   {
     //calculate cost with reference waypoints
     double ref_waypoints_cost = 0;
-    double sum_jerk = 0;
+    double jerk_cost = 0;
     for(size_t i = 0; i < subset_reference_waypoints.size(); i++)
     {
       geometry_msgs::Point reference_point = subset_reference_waypoints[i].pose.pose.position;
@@ -722,7 +726,7 @@ bool FrenetPlanner::selectBestTrajectory(
                                        nearest_trajecotry_point);
       FrenetPoint nearest_frenet_point = 
                trajectory.frenet_trajectory_points[nearest_trajectory_point_index];
-      sum_jerk += std::abs(nearest_frenet_point.s_state[3]) + 
+      jerk_cost += std::abs(nearest_frenet_point.s_state[3]) + 
                   std::abs(nearest_frenet_point.d_state[3]);
       
       // std::cerr << "ref "<< reference_point.x << " " << reference_point.y << std::endl;
@@ -730,11 +734,18 @@ bool FrenetPlanner::selectBestTrajectory(
       // std::cerr << "dist " << dist << std::endl;
       ref_waypoints_cost += dist;
     }
-    // std::cerr << "sum jerk " << sum_jerk << std::endl;
-    jerk_costs.push_back(sum_jerk);
-    sum_jerk_costs += sum_jerk;
+    // std::cerr << "sum jerk " << jerk_cost << std::endl;
+    jerk_costs.push_back(jerk_cost);
+    sum_jerk_costs += jerk_cost;
+    
     ref_waypoints_costs.push_back(ref_waypoints_cost);
     sum_ref_waypoints_costs += ref_waypoints_cost;
+    
+    double min_required_time = kept_reference_point->time_horizon - kept_reference_point->time_horizon_max_offset;
+    double max_required_time = kept_reference_point->time_horizon + kept_reference_point->time_horizon_max_offset;
+    double normalized_required_time_cost = (trajectory.required_time- min_required_time)/max_required_time;
+    required_time_costs.push_back(normalized_required_time_cost);
+    sum_required_time_costs += normalized_required_time_cost;
     
     //calculate terminal cost
     FrenetPoint frenet_point_at_time_horizon = trajectory.frenet_trajectory_points.back();
@@ -764,21 +775,38 @@ bool FrenetPlanner::selectBestTrajectory(
   std::vector<double> debug_norm_ref_wps_costs;
   std::vector<double> debug_norm_ref_last_wp_costs;
   std::vector<double> debug_norm_jerk_costs;
+  std::vector<double> debug_norm_required_time_costs;
   for(size_t i = 0; i < ref_last_waypoints_costs.size(); i++)
   {
     double normalized_ref_waypoints_cost = ref_waypoints_costs[i]/sum_ref_waypoints_costs;
     double normalized_ref_last_waypoints_cost = ref_last_waypoints_costs[i]/sum_last_waypoints_costs;
     double normalized_jerk_cost = jerk_costs[i]/sum_jerk_costs;
-    double sum_cost = normalized_ref_waypoints_cost*diff_waypoints_coef_ + 
-                      normalized_ref_last_waypoints_cost*diff_last_waypoint_coef_+
-                      normalized_jerk_cost*jerk_cost_coef_;
+    double normalized_required_time_cost = required_time_costs[i]/sum_required_time_costs;
+    // double min_required_time = kept_reference_point->time_horizon - kept_reference_point->time_horizon_max_offset;
+    // double max_required_time = kept_reference_point->time_horizon + kept_reference_point->time_horizon_max_offset;
+    // double normalized_required_time_cost = (required_time_costs[i]- min_required_time)/max_required_time;
+    double sum_cost = normalized_ref_waypoints_cost*diff_waypoints_cost_coef_ + 
+                      normalized_ref_last_waypoints_cost*diff_last_waypoint_cost_coef_+
+                      normalized_jerk_cost*jerk_cost_coef_ +
+                      normalized_required_time_cost*required_time_cost_coef_;
     costs.push_back(sum_cost);
     debug_norm_ref_wps_costs.push_back(normalized_ref_waypoints_cost);
     debug_norm_ref_last_wp_costs.push_back(normalized_ref_last_waypoints_cost);
     debug_norm_jerk_costs.push_back(normalized_jerk_cost);
+    debug_norm_required_time_costs.push_back(normalized_required_time_cost);
     // std::cerr << "norm_ref_wps " << normalized_ref_waypoints_cost
     //           << "norm ref last "<< normalized_ref_last_waypoints_cost
     //           << "sum "<< sum_cost<< std::endl;
+    std::cerr  << "n-las "<< normalized_ref_last_waypoints_cost
+              << " n-jer "<< normalized_jerk_cost
+              << " n-tim "<< normalized_required_time_cost
+              << " sum "<< sum_cost<< std::endl;
+    std::cerr << "sum las " << sum_last_waypoints_costs
+              << " sum jer "<< sum_jerk_costs
+              << " sum tim "<< sum_required_time_costs<<std::endl;
+    std::cerr << "act las " << ref_last_waypoints_costs[i]
+              << " act jer "<< jerk_costs[i]
+              << " act tim "<< required_time_costs[i]<<std::endl;
   }
   //arg sort 
   // https://stackoverflow.com/questions/1577475/c-sorting-and-keeping-track-of-indexes/12399290#12399290
@@ -794,14 +822,27 @@ bool FrenetPlanner::selectBestTrajectory(
   bool has_got_best_trajectory = false;
   for(const auto& index: indexes)
   {
-    std::cerr << "n-wps " << debug_norm_ref_wps_costs[index]
-              << " n-las "<< debug_norm_ref_last_wp_costs[index]
-              << " las cos s "<< debug_last_waypoints_costs_s[index]
-              << " act s "<< debug_last_waypoints_actual_s[index]
-              << " las cos d "<< debug_last_waypoints_costs_d[index]
-              << " act d "<< debug_last_waypoints_actual_d[index]
+    // std::cerr << "n-wps " << debug_norm_ref_wps_costs[index]
+    //           << " n-las "<< debug_norm_ref_last_wp_costs[index]
+    //           << " las cos s "<< debug_last_waypoints_costs_s[index]
+    //           << " act s "<< debug_last_waypoints_actual_s[index]
+    //           << " las cos d "<< debug_last_waypoints_costs_d[index]
+    //           << " act d "<< debug_last_waypoints_actual_d[index]
+    //           << " sum "<< costs[index]<< std::endl;
+    // std::cerr << "one of best sum jerk " << jerk_costs[index] << std::endl;
+    // std::cerr << "one of best norm required time  " << debug_norm_required_time_costs[index] << std::endl;
+    // std::cerr << "one of best required time  " << required_time_costs[index] << std::endl;
+    
+    std::cerr  << "n-las "<< debug_norm_ref_last_wp_costs[index]
+              << " n-jer "<< debug_norm_jerk_costs[index]
+              << " n-tim "<< debug_norm_required_time_costs[index]
               << " sum "<< costs[index]<< std::endl;
-    std::cerr << "one of best sum jerk " << jerk_costs[index] << std::endl;
+    std::cerr << "sum las " << sum_last_waypoints_costs
+              << " sum jer "<< sum_jerk_costs
+              << " sum tim "<< sum_required_time_costs<<std::endl;
+    std::cerr << "act las " << ref_last_waypoints_costs[index]
+              << " act jer "<< jerk_costs[index]
+              << " act tim "<< required_time_costs[index]<<std::endl;
     bool is_collision_free = true;
     if(objects_ptr)
     {

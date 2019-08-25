@@ -77,6 +77,7 @@ struct Trajectory
 {
   autoware_msgs::Lane trajectory_points;
   std::vector<FrenetPoint> frenet_trajectory_points;
+  double required_time;
 };
 
 
@@ -92,8 +93,8 @@ public:
     double obstacle_radius_from_center_point,
     double min_lateral_referencing_offset_for_avoidance,
     double max_lateral_referencing_offset_for_avoidance,
-    double diff_waypoints_coef,
-    double diff_last_waypoint_coef,
+    double diff_waypoints_cost_coef,
+    double diff_last_waypoint_cost_coef,
     double lookahead_distance_per_ms_for_reference_point,
     double converge_distance_per_ms_for_stopline);
   ~FrenetPlanner();
@@ -119,9 +120,10 @@ private:
   double obstacle_radius_from_center_point_;
   double min_lateral_referencing_offset_for_avoidance_;
   double max_lateral_referencing_offset_for_avoidance_;
-  double diff_waypoints_coef_;
-  double diff_last_waypoint_coef_;
+  double diff_waypoints_cost_coef_;
+  double diff_last_waypoint_cost_coef_;
   double jerk_cost_coef_;
+  double required_time_cost_coef_;
   
   double lookahead_distance_per_ms_for_reference_point_;
   double minimum_lookahead_distance_for_reference_point_;

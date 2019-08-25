@@ -55,8 +55,8 @@ FrenetPlannerROS::FrenetPlannerROS()
   double obstacle_radius_from_center_point;
   double min_lateral_referencing_offset_for_avoidance;
   double max_lateral_referencing_offset_for_avoidance;
-  double cost_diff_waypoints_coef;
-  double cost_diff_last_waypoint_coef;
+  double diff_waypoints_cost_coef;
+  double diff_last_waypoint_cost_coef;
   double lookahead_distance_per_kmh_for_reference_point;
   double converge_distance_per_kmh_for_stop;
   
@@ -66,8 +66,8 @@ FrenetPlannerROS::FrenetPlannerROS()
   private_nh_.param<double>("obstalce_radius_from_center_point", obstacle_radius_from_center_point, 3.0);
   private_nh_.param<double>("min_lateral_referencing_offset_for_avoidance", min_lateral_referencing_offset_for_avoidance, 5.0);
   private_nh_.param<double>("max_lateral_referencing_offset_for_avoidance", max_lateral_referencing_offset_for_avoidance, 8.0);
-  private_nh_.param<double>("cost_diff_waypoints_coef", cost_diff_waypoints_coef, 0.0);
-  private_nh_.param<double>("cost_diff_last_waypoint_coef", cost_diff_last_waypoint_coef, 1.0);
+  private_nh_.param<double>("diff_waypoints_cost_coef", diff_waypoints_cost_coef, 0.0);
+  private_nh_.param<double>("diff_last_waypoint_cost_coef", diff_last_waypoint_cost_coef, 1.0);
   private_nh_.param<double>("lookahead_distance_per_kmh_for_reference_point", lookahead_distance_per_kmh_for_reference_point, 2.0);
   private_nh_.param<double>("converge_distance_per_kmh_for_stop", converge_distance_per_kmh_for_stop, 2.36);
   const double kmh2ms = 0.2778;
@@ -83,8 +83,8 @@ FrenetPlannerROS::FrenetPlannerROS()
         obstacle_radius_from_center_point,
         min_lateral_referencing_offset_for_avoidance,
         max_lateral_referencing_offset_for_avoidance,
-        cost_diff_waypoints_coef,
-        cost_diff_last_waypoint_coef,
+        diff_waypoints_cost_coef,
+        diff_last_waypoint_cost_coef,
         lookahead_distance_per_ms_for_reference_point,
         converge_distance_per_ms_for_stop));
   // TODO: assume that vectormap is already published when constructing FrenetPlannerROS

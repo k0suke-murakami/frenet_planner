@@ -5,8 +5,8 @@
   <arg name="obstalce_radius_from_center_point" default="3.0" />
   <arg name="min_lateral_referencing_offset_for_avoidance" default="5.0" />
   <arg name="max_lateral_referencing_offset_for_avoidance" default="8.0"/>
-  <arg name="cost_diff_waypoints_coef" default="0.0"/>
-  <arg name="cost_diff_last_waypoint_coef" default="1.0"/>
+  <arg name="diff_waypoints_cost_coef" default="0.0"/>
+  <arg name="diff_last_waypoint_cost_coef" default="1.0"/>
   <arg name="lookahead_distance_per_kmh_for_reference_point" default="2.0"/>
   <arg name="converge_distance_per_kmh_for_stop" default="2.36"/>
   <node pkg="frenet_planner" type="frenet_planner" name="frenet_planner" output="screen">
@@ -16,8 +16,8 @@
     <param name="obstalce_radius_from_center_point"         value="$(arg obstalce_radius_from_center_point)" />
     <param name="min_lateral_referencing_offset_for_avoidance"   value="$(arg min_lateral_referencing_offset_for_avoidance)" />
     <param name="max_lateral_referencing_offset_for_avoidance"   value="$(arg max_lateral_referencing_offset_for_avoidance)" />
-    <param name="cost_diff_waypoints_coef"   value="$(arg cost_diff_waypoints_coef)" />
-    <param name="cost_diff_last_waypoint_coef"   value="$(arg cost_diff_last_waypoint_coef)" />
+    <param name="diff_waypoints_cost_coef"   value="$(arg diff_waypoints_cost_coef)" />
+    <param name="diff_last_waypoint_cost_coef"   value="$(arg diff_last_waypoint_cost_coef)" />
     <param name="lookahead_distance_per_kmh_for_reference_point"   value="$(arg lookahead_distance_per_kmh_for_reference_point)" />
     <param name="converge_distance_per_kmh_for_stop"   value="$(arg converge_distance_per_kmh_for_stop)" />
   </node>
