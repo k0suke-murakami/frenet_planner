@@ -71,6 +71,7 @@ lookahead_distance_per_ms_for_reference_point_(lookahead_distance_per_ms_for_ref
 minimum_lookahead_distance_for_reference_point_(12.0),
 lookahead_distance_for_reference_point_(minimum_lookahead_distance_for_reference_point_),
 converge_distance_per_ms_for_stop_(converge_distance_per_ms_for_stop),
+radius_from_reference_point_for_valid_trajectory_(3.0),
 dt_for_sampling_points_(0.5)
 {
 }
@@ -682,7 +683,7 @@ bool FrenetPlanner::selectBestTrajectory(
     geometry_msgs::Point reference_point = kept_reference_point->cartesian_point;
     double distance = calculate2DDistace(last_trajecotry_point, reference_point);
     //TODO: param
-    if(distance < 3)
+    if(distance < radius_from_reference_point_for_valid_trajectory_)
     {
       subset_trajectories.push_back(trajectory);
     }

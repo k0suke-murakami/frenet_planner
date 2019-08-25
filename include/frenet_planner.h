@@ -127,7 +127,7 @@ private:
   double lookahead_distance_for_reference_point_;
   
   double converge_distance_per_ms_for_stop_;
-  
+  double radius_from_reference_point_for_valid_trajectory_;
   double dt_for_sampling_points_;
   // TODO: think better name previous_best_trajectoy?
   std::unique_ptr<Trajectory> kept_current_trajectory_;
