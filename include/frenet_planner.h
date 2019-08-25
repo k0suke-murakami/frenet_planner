@@ -64,6 +64,8 @@ struct ReferencePoint
   double lateral_sampling_resolution;
   double longutudinal_max_offset;
   double longutudinal_sampling_resolution;
+  double longutudinal_velocity_max_offset;
+  double longutudinal_velocity_sampling_resolution;
   double time_horizon;
   double time_horizon_max_offset;
   double time_horizon_sampling_resolution;
