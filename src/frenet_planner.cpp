@@ -59,6 +59,7 @@ FrenetPlanner::FrenetPlanner(
   double diff_last_waypoint_cost_coef,
   double jerk_cost_coef,
   double required_time_cost_coef,
+  double comfort_acceleration_cost_coef,
   double lookahead_distance_per_ms_for_reference_point,
   double converge_distance_per_ms_for_stop):
 initial_velocity_ms_(initial_velocity_ms),
@@ -71,11 +72,12 @@ diff_waypoints_cost_coef_(diff_waypoints_cost_coef),
 diff_last_waypoint_cost_coef_(diff_last_waypoint_cost_coef),
 jerk_cost_coef_(jerk_cost_coef),
 required_time_cost_coef_(required_time_cost_coef),
+comfort_acceleration_cost_coef_(comfort_acceleration_cost_coef),
 lookahead_distance_per_ms_for_reference_point_(lookahead_distance_per_ms_for_reference_point),
 minimum_lookahead_distance_for_reference_point_(12.0),
 lookahead_distance_for_reference_point_(minimum_lookahead_distance_for_reference_point_),
 converge_distance_per_ms_for_stop_(converge_distance_per_ms_for_stop),
-radius_from_reference_point_for_valid_trajectory_(6.0),
+radius_from_reference_point_for_valid_trajectory_(10.0),
 dt_for_sampling_points_(0.5)
 {
 }
@@ -349,6 +351,12 @@ bool FrenetPlanner::generateTrajectory(
                       waypoint);
     waypoint.pose.pose.position.z = reference_waypoints.front().pose.pose.position.z;
     trajectory.trajectory_points.waypoints.push_back(waypoint);
+    
+    TrajecotoryPoint trajectory_point;
+    calculateTrajectoryPoint(lane_points, 
+                             calculated_frenet_point,
+                             trajectory_point);
+    trajectory.calculated_trajectory_points.push_back(trajectory_point);
   }
   trajectory.required_time = time_horizon;
   return is_valid_trjectory;
@@ -441,6 +449,87 @@ bool FrenetPlanner::calculateWaypoint(
                                           nearest_lane_point_yaw,
                                           waypoint_position);
   waypoint.pose.pose.position = waypoint_position;
+
+  return true;
+}
+
+bool FrenetPlanner::calculateTrajectoryPoint(
+                           const std::vector<Point>& lane_points, 
+                           const FrenetPoint& frenet_point,
+                           TrajecotoryPoint& trajectory_point)
+{
+  // add conversion script for low velocity
+  // std::cerr << "-------" << std::endl;
+  double s_position = frenet_point.s_state(0);
+  double s_velocity = frenet_point.s_state(1);
+  double s_acceleration = frenet_point.s_state(2);
+  double d_position = frenet_point.d_state(0);
+  double d_velocity = frenet_point.d_state(1);
+  double d_acceleration = frenet_point.d_state(2);
+  double min_abs_delta = 100000;
+  double nearest_lane_point_delta_s;
+  double nearest_lane_point_yaw;
+  double nearest_lane_point_curvature;
+  double nearest_lane_point_curvature_dot;
+  geometry_msgs::Point nearest_lane_point;
+  for (const auto& point: lane_points)
+  {
+    double delta_s = s_position - point.cumulated_s;
+    if(std::abs(delta_s) < min_abs_delta)
+    {
+      min_abs_delta = std::abs(delta_s);
+      nearest_lane_point_delta_s = delta_s;
+      nearest_lane_point_yaw = point.rz;
+      nearest_lane_point_curvature = point.curvature;
+      nearest_lane_point_curvature_dot = point.curvature_dot;
+      
+      nearest_lane_point.x = point.tx;
+      nearest_lane_point.y = point.ty;
+      
+    }
+  }
+  
+  double velocity = std::sqrt(std::pow(1 - nearest_lane_point_curvature*d_position, 2)*
+                              std::pow(s_velocity, 2) + 
+                              std::pow(d_velocity,2));
+  // std::cerr << "n-curv " << nearest_lane_point_curvature 
+  //           << "s_velo " << s_velocity
+  //           << "linear v "<< velocity
+  //           << std::endl;
+  // double delta_yaw = nearest_lane_point_yaw - current_yaw;
+  double d_dash = d_velocity/s_velocity;
+  double d_double_dash = (1/(s_velocity*s_velocity))*(d_acceleration - s_acceleration*d_dash);
+  double delta_yaw = std::atan(d_dash/(1 - nearest_lane_point_curvature * d_position));
+  double waypoint_yaw = nearest_lane_point_yaw - delta_yaw;
+  double waypoint_curvature = (std::pow(std::cos(delta_yaw),3)/
+                               std::pow((1-nearest_lane_point_curvature*d_position),2))*
+                              (d_double_dash +
+                               (nearest_lane_point_curvature_dot*d_position +
+                                nearest_lane_point_curvature*d_velocity)*
+                                std::tan(delta_yaw)+
+                               ((1 - nearest_lane_point_curvature*d_position)/
+                               (std::pow(std::cos(delta_yaw),2)))*nearest_lane_point_curvature);
+  double acceleration = s_acceleration*((1 - nearest_lane_point_curvature*d_position)/std::cos(delta_yaw))+
+                        s_velocity*s_velocity/std::cos(delta_yaw)*
+                        ((1 - nearest_lane_point_curvature*d_position)*std::tan(delta_yaw)*
+                        (waypoint_curvature*((1 - nearest_lane_point_curvature*d_position)/std::cos(delta_yaw))-
+                        nearest_lane_point_curvature) -
+                        -1*(nearest_lane_point_curvature_dot*d_position+
+                             nearest_lane_point_curvature*d_velocity));
+  
+  geometry_msgs::Point trajectory_cartesian_point;
+  convertFrenetPosition2CartesianPosition(s_position,
+                                          d_position,
+                                          nearest_lane_point,
+                                          nearest_lane_point_delta_s,
+                                          nearest_lane_point_yaw,
+                                          trajectory_cartesian_point);
+  trajectory_point.x = trajectory_cartesian_point.x;
+  trajectory_point.x = trajectory_cartesian_point.y;
+  trajectory_point.yaw = waypoint_yaw;
+  trajectory_point.curvature = waypoint_curvature;
+  trajectory_point.velocity = velocity;
+  trajectory_point.accerelation = acceleration;
 
   return true;
 }
@@ -714,17 +803,20 @@ bool FrenetPlanner::selectBestTrajectory(
   std::vector<double> debug_last_waypoints_actual_d;
   std::vector<double> jerk_costs;
   std::vector<double> required_time_costs;
+  std::vector<double> comfort_accerelation_costs;
   std::vector<double> debug_max_s_jerk;
   std::vector<double> debug_max_d_jerk;
   double sum_ref_waypoints_costs = 0;
   double sum_last_waypoints_costs = 0;
   double sum_jerk_costs = 0;
   double sum_required_time_costs = 0;
+  double sum_comfort_accerelation_costs = 0;
   for(const auto& trajectory: subset_trajectories)
   {
     //calculate cost with reference waypoints
     double ref_waypoints_cost = 0;
     double jerk_cost = 0;
+    double comfort_accerelation_cost = 0;
     std::vector<double> debug_s_jerks;
     std::vector<double> debug_d_jerks;
     for(size_t i = 0; i < subset_reference_waypoints.size(); i++)
@@ -749,6 +841,23 @@ bool FrenetPlanner::selectBestTrajectory(
       // std::cerr << "jerk s d " << nearest_frenet_point.s_state(3) << " "
       //                          << nearest_frenet_point.d_state(3) << std::endl;
       ref_waypoints_cost += dist;
+      
+      //paper: Trajectory Planning with Velocity Planner for Fully-automate Passenger Vehicles
+      TrajecotoryPoint trajectory_point = trajectory.calculated_trajectory_points[nearest_trajectory_point_index];
+      double lon_acceleration = trajectory_point.accerelation;
+      double lat_acceleration = std::pow(trajectory_point.velocity,2)*trajectory_point.curvature;
+      comfort_accerelation_cost += std::sqrt(std::pow(1.4,2)*std::pow(lon_acceleration,2)+
+                            std::pow(1.4,2)*std::pow(lat_acceleration,2));
+      // std::cerr <<
+      //      "vel; " << trajectory_point.velocity <<
+      //      " curv; " << trajectory_point.curvature <<
+      //      " lon acc; " << trajectory_point.accerelation <<
+      //      " lat acc; " << lat_acceleration <<
+      //      " s vel; " << nearest_frenet_point.s_state(1) <<
+      //      " s jer; " << nearest_frenet_point.s_state(3) <<
+      //      " d jer; " << nearest_frenet_point.d_state(3) <<
+      //      std::endl;
+      // double 
     }
     debug_max_s_jerk.push_back(*std::max_element(debug_s_jerks.begin(), debug_s_jerks.end()));
     debug_max_d_jerk.push_back(*std::max_element(debug_d_jerks.begin(), debug_d_jerks.end()));
@@ -758,6 +867,9 @@ bool FrenetPlanner::selectBestTrajectory(
     
     ref_waypoints_costs.push_back(ref_waypoints_cost);
     sum_ref_waypoints_costs += ref_waypoints_cost;
+    
+    comfort_accerelation_costs.push_back(comfort_accerelation_cost);
+    sum_comfort_accerelation_costs += comfort_accerelation_cost;
     
     double min_required_time = kept_reference_point->time_horizon - kept_reference_point->time_horizon_max_offset;
     double max_required_time = kept_reference_point->time_horizon + kept_reference_point->time_horizon_max_offset;
@@ -794,23 +906,25 @@ bool FrenetPlanner::selectBestTrajectory(
   std::vector<double> debug_norm_ref_last_wp_costs;
   std::vector<double> debug_norm_jerk_costs;
   std::vector<double> debug_norm_required_time_costs;
-  std::cerr << "sum las " << sum_last_waypoints_costs
-            << " sum jer "<< sum_jerk_costs
+  // std::cerr << "sum las " << sum_last_waypoints_costs
+            // << " sum jer "<< sum_jerk_costs
             // << " sum tim "<< sum_required_time_costs
-            <<std::endl;
+            // <<std::endl;
   for(size_t i = 0; i < ref_last_waypoints_costs.size(); i++)
   {
     double normalized_ref_waypoints_cost = ref_waypoints_costs[i]/sum_ref_waypoints_costs;
     double normalized_ref_last_waypoints_cost = ref_last_waypoints_costs[i]/sum_last_waypoints_costs;
     double normalized_jerk_cost = jerk_costs[i]/sum_jerk_costs;
     double normalized_required_time_cost = required_time_costs[i]/sum_required_time_costs;
+    double normalized_comfort_accerelation_cost = comfort_accerelation_costs[i]/sum_comfort_accerelation_costs;
     // double min_required_time = kept_reference_point->time_horizon - kept_reference_point->time_horizon_max_offset;
     // double max_required_time = kept_reference_point->time_horizon + kept_reference_point->time_horizon_max_offset;
     // double normalized_required_time_cost = (required_time_costs[i]- min_required_time)/max_required_time;
     double sum_cost = normalized_ref_waypoints_cost*diff_waypoints_cost_coef_ + 
                       normalized_ref_last_waypoints_cost*diff_last_waypoint_cost_coef_+
                       normalized_jerk_cost*jerk_cost_coef_ +
-                      normalized_required_time_cost*required_time_cost_coef_;
+                      normalized_required_time_cost*required_time_cost_coef_ +
+                      normalized_comfort_accerelation_cost*comfort_acceleration_cost_coef_;
     costs.push_back(sum_cost);
     debug_norm_ref_wps_costs.push_back(normalized_ref_waypoints_cost);
     debug_norm_ref_last_wp_costs.push_back(normalized_ref_last_waypoints_cost);
@@ -819,15 +933,17 @@ bool FrenetPlanner::selectBestTrajectory(
     // std::cerr << "norm_ref_wps " << normalized_ref_waypoints_cost
     //           << "norm ref last "<< normalized_ref_last_waypoints_cost
     //           << "sum "<< sum_cost<< std::endl;
-    std::cerr  << "n-las "<< normalized_ref_last_waypoints_cost
-              << " n-jer "<< normalized_jerk_cost
-              // << " n-tim "<< normalized_required_time_cost
-              << " sum "<< sum_cost
-              << std::endl;
-    std::cerr << "act las " << ref_last_waypoints_costs[i]
-              << " act jer "<< jerk_costs[i]
-              // << " act tim "<< required_time_costs[i]
-              <<std::endl;
+    // std::cerr  << "n-las "<< normalized_ref_last_waypoints_cost
+    //           // << " n-jer "<< normalized_jerk_cost
+    //           << " n-aw "<< normalized_aw_cost
+    //           // << " n-tim "<< normalized_required_time_cost
+    //           << " sum "<< sum_cost
+    //           << std::endl;
+    // std::cerr << "act las " << ref_last_waypoints_costs[i]
+    //           // << " act jer "<< jerk_costs[i]
+    //           << " act aw "<< aw_costs[i]
+    //           // << " act tim "<< required_time_costs[i]
+    //           <<std::endl;
   }
   //arg sort 
   // https://stackoverflow.com/questions/1577475/c-sorting-and-keeping-track-of-indexes/12399290#12399290
@@ -854,18 +970,22 @@ bool FrenetPlanner::selectBestTrajectory(
     // std::cerr << "one of best norm required time  " << debug_norm_required_time_costs[index] << std::endl;
     // std::cerr << "one of best required time  " << required_time_costs[index] << std::endl;
     
-    std::cerr  << "n-las "<< debug_norm_ref_last_wp_costs[index]
-              << " n-jer "<< debug_norm_jerk_costs[index]
-              << " n-tim "<< debug_norm_required_time_costs[index]
-              << " sum "<< costs[index]<< std::endl;
-    std::cerr << "sum las " << sum_last_waypoints_costs
-              << " sum jer "<< sum_jerk_costs
-              << " sum tim "<< sum_required_time_costs<<std::endl;
+    // std::cerr  << "n-las "<< debug_norm_ref_last_wp_costs[index]
+              // << " n-jer "<< debug_norm_jerk_costs[index]
+              // << " n-tim "<< debug_norm_required_time_costs[index]
+    //           << " sum "<< costs[index]<< std::endl;
+    // std::cerr << "sum las " << sum_last_waypoints_costs
+              // << " sum jer "<< sum_jerk_costs
+              // << " sum tim "<< sum_required_time_costs<<std::endl;
+    // std::cerr << "act las " << ref_last_waypoints_costs[index]
+    //           << " act jer "<< jerk_costs[index]
+    //           << " act tim "<< required_time_costs[index]<<std::endl;
+    // std::cerr << "max s jer" << debug_max_s_jerk[index] << 
+    //              "max d jer" << debug_max_d_jerk[index] << std::endl;
+    std::cerr << "------"  << std::endl;
     std::cerr << "act las " << ref_last_waypoints_costs[index]
-              << " act jer "<< jerk_costs[index]
-              << " act tim "<< required_time_costs[index]<<std::endl;
-    std::cerr << "max s jer" << debug_max_s_jerk[index] << 
-                 "max d jer" << debug_max_d_jerk[index] << std::endl;
+              << " act aw "<< comfort_accerelation_costs[index]
+              <<std::endl;
     bool is_collision_free = true;
     if(objects_ptr)
     {
@@ -1224,7 +1344,7 @@ bool FrenetPlanner::generateNewReferencePoint(
     reference_point.lateral_sampling_resolution =0.01;
     reference_point.longutudinal_max_offset = 0.0;
     reference_point.longutudinal_sampling_resolution = 0.01;
-    reference_point.longutudinal_velocity_max_offset = 1.0;
+    reference_point.longutudinal_velocity_max_offset = 2.0;
     reference_point.longutudinal_velocity_sampling_resolution = 0.1;
     reference_point.time_horizon = 12.0;
     reference_point.time_horizon_max_offset = 8.0;

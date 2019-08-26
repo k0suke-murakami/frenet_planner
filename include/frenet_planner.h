@@ -72,11 +72,23 @@ struct ReferencePoint
   ReferenceTypeInfo reference_type_info;
 };
 
+struct TrajecotoryPoint
+{
+  double x;
+  double y;
+  double yaw;
+  double curvature;
+  double velocity;
+  double accerelation;
+};
+
 //TODO: change name to Trajectory
 struct Trajectory
 {
+  //deprecated in v0.4
   autoware_msgs::Lane trajectory_points;
   std::vector<FrenetPoint> frenet_trajectory_points;
+  std::vector<TrajecotoryPoint> calculated_trajectory_points;
   double required_time;
 };
 
@@ -97,6 +109,7 @@ public:
     double diff_last_waypoint_cost_coef,
     double jerk_cost_coef,
     double required_time_cost_coef,
+    double comfort_acceleration_cost_coef,
     double lookahead_distance_per_ms_for_reference_point,
     double converge_distance_per_ms_for_stopline);
   ~FrenetPlanner();
@@ -126,6 +139,7 @@ private:
   double diff_last_waypoint_cost_coef_;
   double jerk_cost_coef_;
   double required_time_cost_coef_;
+  double comfort_acceleration_cost_coef_;
   
   double lookahead_distance_per_ms_for_reference_point_;
   double minimum_lookahead_distance_for_reference_point_;
@@ -170,6 +184,10 @@ private:
   bool calculateWaypoint(const std::vector<Point>& lane_points, 
                         const FrenetPoint& frenet_point,
                         autoware_msgs::Waypoint& waypoint);
+  
+  bool calculateTrajectoryPoint(const std::vector<Point>& lane_points, 
+                           const FrenetPoint& frenet_point,
+                           TrajecotoryPoint& waypoint);
   
   //TODO: think better name for delta_s
   //TODO: improbe by changing delta_yaw(reference current or previous)

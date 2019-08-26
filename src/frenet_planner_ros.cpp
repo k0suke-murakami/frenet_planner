@@ -59,6 +59,7 @@ FrenetPlannerROS::FrenetPlannerROS()
   double diff_last_waypoint_cost_coef;
   double jerk_cost_coef;
   double required_time_cost_coef;
+  double comfort_acceleration_cost_coef;
   double lookahead_distance_per_kmh_for_reference_point;
   double converge_distance_per_kmh_for_stop;
   
@@ -72,6 +73,7 @@ FrenetPlannerROS::FrenetPlannerROS()
   private_nh_.param<double>("diff_last_waypoint_cost_coef", diff_last_waypoint_cost_coef, 1.0);
   private_nh_.param<double>("jerk_cost_coef", jerk_cost_coef, 0.25);
   private_nh_.param<double>("required_time_cost_coef", required_time_cost_coef, 1.0);
+  private_nh_.param<double>("comfort_acceleration_cost_coef", comfort_acceleration_cost_coef, 0.0);
   private_nh_.param<double>("lookahead_distance_per_kmh_for_reference_point", lookahead_distance_per_kmh_for_reference_point, 2.0);
   private_nh_.param<double>("converge_distance_per_kmh_for_stop", converge_distance_per_kmh_for_stop, 2.36);
   const double kmh2ms = 0.2778;
@@ -91,6 +93,7 @@ FrenetPlannerROS::FrenetPlannerROS()
         diff_last_waypoint_cost_coef,
         jerk_cost_coef,
         required_time_cost_coef,
+        comfort_acceleration_cost_coef,
         lookahead_distance_per_ms_for_reference_point,
         converge_distance_per_ms_for_stop));
   // TODO: assume that vectormap is already published when constructing FrenetPlannerROS

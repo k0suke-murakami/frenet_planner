@@ -77,22 +77,23 @@ std::vector<Point> CalculateCenterLine::calculateCenterLineFromGlobalWaypoints(
       v2 << x3 - x2, y3 - y2;
       double yaw_by_cos = std::acos(v1.dot(v2)/(v1.norm()*v2.norm()));
       
-      double curvature = 0;
+      double tmp_curvature = 0;
       //straight check
       if(yaw_by_cos > (M_PI- 0.01))
       {
-        curvature = 0;
+        tmp_curvature = 0;
       }
       else if(plus_or_minus_sign > 0)
       {
-        curvature = -1/r;
+        tmp_curvature = -1/r;
       }
       else
       {
-        curvature = 1/r;
+        tmp_curvature = 1/r;
       }
-      curvature = curvature;
+      curvature = tmp_curvature;
     }
+    std::cerr << "curvarture " << curvature << std::endl;
     center_line_point.curvature = curvature;
 
     //calculate cumulated_s
