@@ -281,7 +281,6 @@ private:
     
   bool getNextOriginPointAndReferencePoint(
     const autoware_msgs::Waypoint& ego_waypoint,
-    const double origin_linear_velocity,    
     const std::vector<autoware_msgs::Waypoint>& reference_waypoints,
     const std::vector<Point>& lane_points,
     const std::unique_ptr<autoware_msgs::DetectedObjectArray>& objects,

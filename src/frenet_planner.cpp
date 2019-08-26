@@ -75,7 +75,7 @@ lookahead_distance_per_ms_for_reference_point_(lookahead_distance_per_ms_for_ref
 minimum_lookahead_distance_for_reference_point_(12.0),
 lookahead_distance_for_reference_point_(minimum_lookahead_distance_for_reference_point_),
 converge_distance_per_ms_for_stop_(converge_distance_per_ms_for_stop),
-radius_from_reference_point_for_valid_trajectory_(5.0),
+radius_from_reference_point_for_valid_trajectory_(6.0),
 dt_for_sampling_points_(0.5)
 {
 }
@@ -142,7 +142,6 @@ void FrenetPlanner::doPlan(const geometry_msgs::PoseStamped& in_current_pose,
   ego_waypoint.twist.twist = in_current_twist.twist;
   FrenetPoint next_origin_point;  
   if(getNextOriginPointAndReferencePoint(ego_waypoint,
-                        kept_current_trajectory_->trajectory_points.waypoints.back().twist.twist.linear.x,
                         in_reference_waypoints,
                         in_nearest_lane_points,
                         in_objects_ptr,
@@ -700,6 +699,11 @@ bool FrenetPlanner::selectBestTrajectory(
     }
   }
   std::cerr << "num subset traj" << subset_trajectories.size() << std::endl;
+  if(subset_trajectories.size()==0)
+  {
+    std::cerr << "ERROR; subset trajectory size is zero"  << std::endl;
+    std::cerr << "Please, set higer value for radius_from_reference_point_for_valid_trajecotry_"  << std::endl;
+  }
   
   
   std::vector<double> ref_waypoints_costs;
@@ -954,7 +958,7 @@ bool FrenetPlanner::isFlaggedWaypointCloseWithPoint(
 //TODO: not considering the size of waypoints
 bool FrenetPlanner::generateNewReferencePoint(
   const ReferencePoint& current_reference_point,
-  const double origin_linear_velocity,  
+  const double origin_linear_velocity,  //onlu for lookaheddistance
   const std::vector<autoware_msgs::Waypoint>& reference_waypoints,
   const std::vector<Point>& lane_points,
   const std::unique_ptr<autoware_msgs::DetectedObjectArray>& objects_ptr,
@@ -1016,7 +1020,6 @@ bool FrenetPlanner::generateNewReferencePoint(
     default_target_waypoint.twist.twist.linear.x,
     lane_points,
     default_reference_frenet_point);
-  
   
   //TODO: change the behavior here based on current_reference_point's reference type
   //TODO: need refactor 
@@ -1158,7 +1161,10 @@ bool FrenetPlanner::generateNewReferencePoint(
       {
         std::cerr << "lateral offset " << lateral_offset << std::endl;
         reference_type_info.type = ReferenceType::AvoidingPoint;
-        offset_reference_frenet_point.s_state(1)*= 0.75;        
+        
+        double target_linear_velocity = 
+         std::min(offset_reference_frenet_point.s_state(1)*0.75, velcity_ms_before_obstalcle_*6.0);
+        offset_reference_frenet_point.s_state(1)= target_linear_velocity;        
         reference_frenet_point = offset_reference_frenet_point;
         
       
@@ -1183,6 +1189,7 @@ bool FrenetPlanner::generateNewReferencePoint(
             
           }
         }
+        std::cerr << "ref s  " << reference_frenet_point.s_state <<std::endl;
         geometry_msgs::Point tmp_cartesian_point;
         convertFrenetPosition2CartesianPosition(reference_frenet_point.s_state(0),
                                                  reference_frenet_point.d_state(0),
@@ -1283,6 +1290,9 @@ bool FrenetPlanner::generateNewReferencePoint(
     reference_point.time_horizon_sampling_resolution = 2.0;
     reference_point.reference_type_info = reference_type_info;
   }
+  
+  std::cerr << "----------------------------------------------next reference type " 
+  << static_cast<int>(reference_point.reference_type_info.type) << std::endl;
   return true;
 }
 
@@ -1693,7 +1703,6 @@ bool FrenetPlanner::getCurrentOriginPointAndReferencePoint(
 
 bool FrenetPlanner::getNextOriginPointAndReferencePoint(
     const autoware_msgs::Waypoint& ego_waypoint,
-    const double origin_linear_velocity,
     const std::vector<autoware_msgs::Waypoint>& reference_waypoints,
     const std::vector<Point>& lane_points,
     const std::unique_ptr<autoware_msgs::DetectedObjectArray>& objects_ptr,
@@ -1900,7 +1909,7 @@ bool FrenetPlanner::getNextOriginPointAndReferencePoint(
     is_new_reference_point = 
        generateNewReferencePoint(
                           *kept_current_reference_point,
-                          origin_linear_velocity,
+                          kept_current_trajectory->frenet_trajectory_points.back().s_state(1),
                           reference_waypoints,
                           lane_points,
                           objects_ptr,
