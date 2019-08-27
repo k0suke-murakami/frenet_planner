@@ -1509,6 +1509,7 @@ bool FrenetPlanner::updateReferencePoint(
   autoware_msgs::Waypoint reference_waypoint;
   std::vector<autoware_msgs::Waypoint> current_trajectory_points = 
   kept_trajectory->trajectory_points.waypoints;
+  double target_linear_velocity = 0.0;
   for(size_t i = 0; i < current_trajectory_points.size(); i++)
   {
     bool is_collision = false;
@@ -1529,6 +1530,7 @@ bool FrenetPlanner::updateReferencePoint(
       reference_point.reference_type_info.type = ReferenceType::Obstacle;
       reference_point.reference_type_info.referencing_object_id = tmp_collision_object_id;
       reference_point.reference_type_info.referencing_object_index = tmp_collision_object_index;
+      target_linear_velocity = velcity_ms_before_obstalcle_;
       
       std::cerr << "Detect collision while updating reference point!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::endl;
       break;
@@ -1544,6 +1546,7 @@ bool FrenetPlanner::updateReferencePoint(
         reference_waypoint = flagged_waypoint;
         found_new_reference_point = true;
         reference_point.reference_type_info.type = ReferenceType::StopLine;
+        target_linear_velocity = 0.0;
         std::cerr << "found flagged point!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"  << std::endl;
         break;
       }
@@ -1557,7 +1560,7 @@ bool FrenetPlanner::updateReferencePoint(
   FrenetPoint reference_frenet_point;
   convertWaypoint2FrenetPoint(
     reference_waypoint.pose.pose.position,
-    reference_waypoint.twist.twist.linear.x,
+    target_linear_velocity,
     lane_points,
     reference_frenet_point);
   
