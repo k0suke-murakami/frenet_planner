@@ -1512,9 +1512,14 @@ bool FrenetPlanner::updateReferencePoint(
   for(size_t i = 0; i < current_trajectory_points.size(); i++)
   {
     bool is_collision = false;
+    size_t tmp_collision_object_id;
+    size_t tmp_collision_object_index;
     if(objects_ptr)
     {
-      is_collision = isCollision(current_trajectory_points[i], *objects_ptr);
+      is_collision = isCollision(current_trajectory_points[i], 
+                                    *objects_ptr,
+                                    tmp_collision_object_id,
+                                    tmp_collision_object_index);
     }
     
     if(is_collision)
@@ -1522,6 +1527,9 @@ bool FrenetPlanner::updateReferencePoint(
       reference_waypoint = current_trajectory_points[i];
       found_new_reference_point = true;
       reference_point.reference_type_info.type = ReferenceType::Obstacle;
+      reference_point.reference_type_info.referencing_object_id = tmp_collision_object_id;
+      reference_point.reference_type_info.referencing_object_index = tmp_collision_object_index;
+      
       std::cerr << "Detect collision while updating reference point!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::endl;
       break;
     } 
