@@ -93,7 +93,7 @@ std::vector<Point> CalculateCenterLine::calculateCenterLineFromGlobalWaypoints(
       }
       curvature = tmp_curvature;
     }
-    std::cerr << "curvarture " << curvature << std::endl;
+    // std::cerr << "curvarture " << curvature << std::endl;
     center_line_point.curvature = curvature;
 
     //calculate cumulated_s
