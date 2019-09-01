@@ -74,7 +74,7 @@ jerk_cost_coef_(jerk_cost_coef),
 required_time_cost_coef_(required_time_cost_coef),
 comfort_acceleration_cost_coef_(comfort_acceleration_cost_coef),
 lookahead_distance_per_ms_for_reference_point_(lookahead_distance_per_ms_for_reference_point),
-minimum_lookahead_distance_for_reference_point_(12.0),
+minimum_lookahead_distance_for_reference_point_(20.0),
 lookahead_distance_for_reference_point_(minimum_lookahead_distance_for_reference_point_),
 converge_distance_per_ms_for_stop_(converge_distance_per_ms_for_stop),
 radius_from_reference_point_for_valid_trajectory_(10.0),
@@ -96,7 +96,7 @@ void FrenetPlanner::doPlan(const geometry_msgs::PoseStamped& in_current_pose,
               autoware_msgs::Lane& out_trajectory,
               std::vector<autoware_msgs::Lane>& out_debug_trajectories,
               std::vector<geometry_msgs::Point>& out_reference_points)
-{   
+{
   //TODO: seek more readable code
   //TODO: think the interface between the components
   std::cerr << "start process of doPlan" << std::endl;
@@ -131,6 +131,29 @@ void FrenetPlanner::doPlan(const geometry_msgs::PoseStamped& in_current_pose,
   else
   {
     std::cerr << "log: not update [current] refenrence point"  << std::endl;
+  }
+  
+  if(kept_current_reference_point_)
+  {
+    std::cerr << "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" << std::endl;
+    FrenetPoint frenet_point;
+    autoware_msgs::Waypoint nearest_waypoint;
+    getNearestWaypoint(in_current_pose.pose.position, 
+                       in_reference_waypoints,
+                       nearest_waypoint);
+    convertWaypoint2FrenetPoint(
+      nearest_waypoint.pose.pose.position,
+      initial_velocity_ms_,
+      in_nearest_lane_points,
+      frenet_point);
+    origin_frenet_point = frenet_point;
+    std::vector<Trajectory> trajectories;
+    drawTrajectories(origin_frenet_point,
+                    *kept_current_reference_point_,
+                    in_nearest_lane_points,
+                    in_reference_waypoints,
+                    trajectories,
+                    out_debug_trajectories);
   }
   
   
@@ -224,6 +247,105 @@ bool FrenetPlanner::generateTrajectory(
     const double dt_for_sampling_points,
     Trajectory& trajectory)
 {
+  
+  double origin_s = origin_frenet_point.s_state(0);
+  double target_s = reference_frenet_point.s_state(0);
+  double delta_s = target_s - origin_s;
+  Eigen::Matrix3d a; 
+  a << std::pow(delta_s, 3), std::pow(delta_s, 2), delta_s,
+                       0                   ,                    0,       1,
+                                  3*delta_s*delta_s,            2*delta_s,       1;
+  double target_d = reference_frenet_point.d_state(0);
+  Eigen::Vector3d b;
+  b << target_d, 0, 0;
+  Eigen::Vector3d x = a.inverse()*b;
+  
+  double origin_d = origin_frenet_point.d_state(0);
+  const size_t num_sample = 20;
+  for(size_t i = 0; i < num_sample; i++)
+  {
+    double calculated_s = i*delta_s/static_cast<double>(num_sample) + origin_s;
+    double tmp_delta_s = calculated_s - origin_s;
+    double calculated_d = x(0)*std::pow(tmp_delta_s, 3) + 
+                          x(1)*std::pow(tmp_delta_s, 2) +
+                          x(2)*tmp_delta_s +
+                          origin_d;
+    FrenetPoint calculated_frenet_point;
+    calculated_frenet_point.s_state(0) = calculated_s;
+    calculated_frenet_point.s_state(1) = 1.38;
+    calculated_frenet_point.s_state(2) = 0;
+    calculated_frenet_point.s_state(3) = 0;
+    calculated_frenet_point.d_state(0) = calculated_d;
+    calculated_frenet_point.d_state(1) = 0;
+    calculated_frenet_point.d_state(2) = 0;
+    calculated_frenet_point.d_state(3) = 0;
+    trajectory.frenet_trajectory_points.push_back(calculated_frenet_point);
+    
+    autoware_msgs::Waypoint waypoint;
+    calculateWaypoint(lane_points, 
+                      calculated_frenet_point,
+                      waypoint);
+    waypoint.pose.pose.position.z = reference_waypoints.front().pose.pose.position.z;
+    trajectory.trajectory_points.waypoints.push_back(waypoint);
+    
+    TrajecotoryPoint trajectory_point;
+    calculateTrajectoryPoint(lane_points, 
+                             calculated_frenet_point,
+                             trajectory_point);
+    trajectory.calculated_trajectory_points.push_back(trajectory_point);
+  }
+  trajectory.required_time = time_horizon;
+  return true;
+  
+  // double origin_s = origin_frenet_point.s_state(0);
+  // double target_s = reference_frenet_point.s_state(0);
+  // double delta_s = target_s - origin_s;
+  // Eigen::Matrix4d a; 
+  // a << std::pow(delta_s, 4), std::pow(delta_s, 3), std::pow(delta_s,2), delta_s,
+  //                      0   ,                    0,        0,1,
+  //               4*delta_s*delta_s*delta_s,  3*delta_s*delta_s,  2*delta_s,       1,
+  //               12*delta_s*delta_s, 6*delta_s, 2, 0;
+  // double target_d = reference_frenet_point.d_state(0);
+  // Eigen::Vector4d b;
+  // b << target_d, 0, 0, 0;
+  // Eigen::Vector4d x = a.inverse()*b;
+  
+  // double origin_d = origin_frenet_point.d_state(0);
+  // const size_t num_sample = 20;
+  // for(size_t i = 0; i < num_sample; i++)
+  // {
+  //   double calculated_s = i*delta_s/static_cast<double>(num_sample) + origin_s;
+  //   double tmp_delta_s = calculated_s - origin_s;
+  //   double calculated_d = x(0)*std::pow(tmp_delta_s, 3) + 
+  //                         x(1)*std::pow(tmp_delta_s, 2) +
+  //                         x(2)*tmp_delta_s +
+  //                         origin_d;
+  //   FrenetPoint calculated_frenet_point;
+  //   calculated_frenet_point.s_state(0) = calculated_s;
+  //   calculated_frenet_point.s_state(1) = 1.38;
+  //   calculated_frenet_point.s_state(2) = 0;
+  //   calculated_frenet_point.s_state(3) = 0;
+  //   calculated_frenet_point.d_state(0) = calculated_d;
+  //   calculated_frenet_point.d_state(1) = 0;
+  //   calculated_frenet_point.d_state(2) = 0;
+  //   calculated_frenet_point.d_state(3) = 0;
+  //   trajectory.frenet_trajectory_points.push_back(calculated_frenet_point);
+    
+  //   autoware_msgs::Waypoint waypoint;
+  //   calculateWaypoint(lane_points, 
+  //                     calculated_frenet_point,
+  //                     waypoint);
+  //   waypoint.pose.pose.position.z = reference_waypoints.front().pose.pose.position.z;
+  //   trajectory.trajectory_points.waypoints.push_back(waypoint);
+    
+  //   TrajecotoryPoint trajectory_point;
+  //   calculateTrajectoryPoint(lane_points, 
+  //                            calculated_frenet_point,
+  //                            trajectory_point);
+  //   trajectory.calculated_trajectory_points.push_back(trajectory_point);
+  // }
+  // trajectory.required_time = time_horizon;
+  // return true;
   
   // TODO: seperate trajectory generation method and calculating cost method
   // https://www.researchgate.net/publication/254098780_Optimal_trajectories_for_time-critical_street_scenarios_using_discretized_terminal_manifolds
@@ -1340,15 +1462,15 @@ bool FrenetPlanner::generateNewReferencePoint(
   {
     reference_point.frenet_point = reference_frenet_point;
     reference_point.cartesian_point = reference_cartesian_point;
-    reference_point.lateral_max_offset = 0.0;
-    reference_point.lateral_sampling_resolution =0.01;
+    reference_point.lateral_max_offset = 5.0;
+    reference_point.lateral_sampling_resolution =0.5;
     reference_point.longutudinal_max_offset = 0.0;
     reference_point.longutudinal_sampling_resolution = 0.01;
-    reference_point.longutudinal_velocity_max_offset = 2.0;
+    reference_point.longutudinal_velocity_max_offset = 0.0;
     reference_point.longutudinal_velocity_sampling_resolution = 0.1;
     reference_point.time_horizon = 12.0;
-    reference_point.time_horizon_max_offset = 8.0;
-    reference_point.time_horizon_sampling_resolution = 1.0;
+    reference_point.time_horizon_max_offset = 0.0;
+    reference_point.time_horizon_sampling_resolution = 0.1;
     reference_point.reference_type_info = reference_type_info;
   }
   else if(reference_type_info.type == ReferenceType::Obstacle)

@@ -292,7 +292,10 @@ void FrenetPlannerROS::timerCallback(const ros::TimerEvent &e)
     // std::cerr << "output num wps" << out_trajectory.waypoints.size() << std::endl;
     std::cerr << "------------"  << std::endl;
     
-    optimized_waypoints_pub_.publish(out_trajectory);
+    autoware_msgs::Lane dummy_lane = *in_waypoints_ptr_;
+    dummy_lane.waypoints = local_reference_waypoints;
+    optimized_waypoints_pub_.publish(dummy_lane);
+    // optimized_waypoints_pub_.publish(out_trajectory);
     
     
     
