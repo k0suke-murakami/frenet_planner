@@ -1,3 +1,5 @@
+#include <numeric>
+
 #include <autoware_msgs/LaneArray.h>
 #include <autoware_msgs/DetectedObjectArray.h>
 
