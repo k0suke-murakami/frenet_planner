@@ -59,17 +59,17 @@ struct ReferenceTypeInfo
 struct ReferencePoint
 {
   FrenetPoint frenet_point;
-  geometry_msgs::Point cartesian_point;
+  // geometry_msgs::Point cartesian_point;
   double lateral_max_offset;
   double lateral_sampling_resolution;
-  double longutudinal_max_offset;
-  double longutudinal_sampling_resolution;
-  double longutudinal_velocity_max_offset;
-  double longutudinal_velocity_sampling_resolution;
-  double time_horizon;
-  double time_horizon_max_offset;
-  double time_horizon_sampling_resolution;
-  ReferenceTypeInfo reference_type_info;
+  // double longutudinal_max_offset;
+  // double longutudinal_sampling_resolution;
+  // double longutudinal_velocity_max_offset;
+  // double longutudinal_velocity_sampling_resolution;
+  // double time_horizon;
+  // double time_horizon_max_offset;
+  // double time_horizon_sampling_resolution;
+  // ReferenceTypeInfo reference_type_info;
 };
 
 struct TrajecotoryPoint
@@ -91,6 +91,7 @@ struct Trajectory
   std::vector<TrajecotoryPoint> calculated_trajectory_points;
   double required_time;
 };
+
 
 
 
@@ -156,6 +157,16 @@ private:
   std::unique_ptr<ReferencePoint> kept_current_reference_point_;
   std::unique_ptr<ReferencePoint> kept_next_reference_point_;
   
+  std::unique_ptr<std::vector<autoware_msgs::Waypoint>> previous_best_path_;
+  
+  bool generateEntirePath(
+    const geometry_msgs::PoseStamped& current_pose,
+    const std::vector<Point>& lane_points,
+    const std::vector<autoware_msgs::Waypoint>& reference_waypoints,
+    const std::unique_ptr<autoware_msgs::DetectedObjectArray>& in_objects_ptr,
+    std::vector<autoware_msgs::Waypoint>& path_points,
+    std::vector<autoware_msgs::Lane>& out_debug_trajectories
+    );
 
   void  getNearestPoints(const geometry_msgs::Point& point,
                         const std::vector<Point>& nearest_lane_points,
@@ -172,6 +183,7 @@ private:
                           autoware_msgs::Waypoint& second_nearest_waypoint);
                
   bool generateTrajectory(
+    const geometry_msgs::Pose& ego_pose,
     const std::vector<Point>& lane_points,
     const std::vector<autoware_msgs::Waypoint>& reference_waypoints,  
     const FrenetPoint& origin_frenet_point,
@@ -205,11 +217,11 @@ private:
         double& frenet_s_position,
         double& frenet_d_position);
         
-  bool convertWaypoint2FrenetPoint(
-        const geometry_msgs::Point& cartesian_point,
-        const double linear_velocity,
-        const std::vector<Point> lane_points,        
-        FrenetPoint& frenet_point);
+  // bool convertWaypoint2FrenetPoint(
+  //       const geometry_msgs::Point& cartesian_point,
+  //       const double linear_velocity,
+  //       const std::vector<Point> lane_points,        
+  //       FrenetPoint& frenet_point);
   
     
   bool selectBestTrajectory(
@@ -219,53 +231,53 @@ private:
     std::unique_ptr<ReferencePoint>& kept_reference_point,    
     std::unique_ptr<Trajectory>& kept_best_trajectory);
   
-  //assume the interface with behaior planner in new planning architecture
-  bool containFlaggedWaypoint(const autoware_msgs::Lane& reference_waypoints,
-                              autoware_msgs::Waypoint& flagged_waypoint);
+  // //assume the interface with behaior planner in new planning architecture
+  // bool containFlaggedWaypoint(const autoware_msgs::Lane& reference_waypoints,
+  //                             autoware_msgs::Waypoint& flagged_waypoint);
                               
-  bool isFlaggedWaypointCloseWithTrajectory(
-        const autoware_msgs::Waypoint& flagged_waypoint_ptr,
-        const std::vector<autoware_msgs::Waypoint>& waypoints);
+  // bool isFlaggedWaypointCloseWithTrajectory(
+  //       const autoware_msgs::Waypoint& flagged_waypoint_ptr,
+  //       const std::vector<autoware_msgs::Waypoint>& waypoints);
         
-  //TODO: change to more general name
-  //TODO: pass pose for sophisticated collisiong check by using orientation
-  bool isFlaggedWaypointCloseWithPoint(
-        const autoware_msgs::Waypoint& flagged_waypoint_ptr,
-        const geometry_msgs::Point& compared_point);
+  // //TODO: change to more general name
+  // //TODO: pass pose for sophisticated collisiong check by using orientation
+  // bool isFlaggedWaypointCloseWithPoint(
+  //       const autoware_msgs::Waypoint& flagged_waypoint_ptr,
+  //       const geometry_msgs::Point& compared_point);
         
         
-  // pick up reference point from reference waypoints
-  bool generateNewReferencePoint(
-       const ReferencePoint& origin_cartesian_point,
-       const double origin_linear_velocity,
-       const std::vector<autoware_msgs::Waypoint>& waypoints,
-       const std::vector<Point>& lane_points,
-       const std::unique_ptr<autoware_msgs::DetectedObjectArray>& objects_ptr,
-       ReferencePoint& reference_point);
+  // // pick up reference point from reference waypoints
+  // bool generateNewReferencePoint(
+  //      const ReferencePoint& origin_cartesian_point,
+  //      const double origin_linear_velocity,
+  //      const std::vector<autoware_msgs::Waypoint>& waypoints,
+  //      const std::vector<Point>& lane_points,
+  //      const std::unique_ptr<autoware_msgs::DetectedObjectArray>& objects_ptr,
+  //      ReferencePoint& reference_point);
   
-  bool generateInitialReferencePoint(
-      const geometry_msgs::Point& origin_cartesian_point,
-      const double origin_linear_velocity,  
-      const std::vector<autoware_msgs::Waypoint>& reference_waypoints,
-      const std::vector<Point>& lane_points,
-      ReferencePoint& reference_point);
+  // bool generateInitialReferencePoint(
+  //     const geometry_msgs::Point& origin_cartesian_point,
+  //     const double origin_linear_velocity,  
+  //     const std::vector<autoware_msgs::Waypoint>& reference_waypoints,
+  //     const std::vector<Point>& lane_points,
+  //     ReferencePoint& reference_point);
   
   
-  // pick up new reference point from kept_trajectory/lane points
-  bool updateReferencePoint(
-    const std::unique_ptr<Trajectory>& kept_trajectory,
-    const std::vector<autoware_msgs::Waypoint>& waypoints,
-    const std::vector<Point>& lane_points,
-    const std::unique_ptr<autoware_msgs::DetectedObjectArray>& objects_ptr,
-    const std::unique_ptr<ReferencePoint>& kept_reference_point,
-    ReferencePoint& reference_point);
+  // // pick up new reference point from kept_trajectory/lane points
+  // bool updateReferencePoint(
+  //   const std::unique_ptr<Trajectory>& kept_trajectory,
+  //   const std::vector<autoware_msgs::Waypoint>& waypoints,
+  //   const std::vector<Point>& lane_points,
+  //   const std::unique_ptr<autoware_msgs::DetectedObjectArray>& objects_ptr,
+  //   const std::unique_ptr<ReferencePoint>& kept_reference_point,
+  //   ReferencePoint& reference_point);
     
-  // Flagged Waypoint is defined in new planning architecture
-  //TODO: is there any way to make cleaner interface than this
-  bool includeFlaggedWaypoint(
-    const std::vector<autoware_msgs::Waypoint>& waypoints,
-    autoware_msgs::Waypoint& flagged_waypoints
-  ); 
+  // // Flagged Waypoint is defined in new planning architecture
+  // //TODO: is there any way to make cleaner interface than this
+  // bool includeFlaggedWaypoint(
+  //   const std::vector<autoware_msgs::Waypoint>& waypoints,
+  //   autoware_msgs::Waypoint& flagged_waypoints
+  // ); 
   
   bool isCollision(const autoware_msgs::Waypoint& waypoint,
                    const autoware_msgs::DetectedObjectArray& objects);
@@ -275,11 +287,12 @@ private:
                    size_t& collision_object_id,
                    size_t& collision_object_index);
   
-  bool isReferencePointValid(const geometry_msgs::Pose& ego_pose,
-                          const geometry_msgs::Point& cartesian_reference_point,
-                          const geometry_msgs::Point& last_reference_waypoint);
+  // bool isReferencePointValid(const geometry_msgs::Pose& ego_pose,
+  //                         const geometry_msgs::Point& cartesian_reference_point,
+  //                         const geometry_msgs::Point& last_reference_waypoint);
                           
   bool drawTrajectories(
+              const geometry_msgs::Pose& ego_pose,
               const FrenetPoint& frenet_current_point,
               const ReferencePoint& reference_point,
               const std::vector<Point>& in_nearest_lane_points,
@@ -287,26 +300,26 @@ private:
               std::vector<Trajectory>& trajectories,
               std::vector<autoware_msgs::Lane>& out_debug_trajectories);
   
-  bool getCurrentOriginPointAndReferencePoint(
-    const geometry_msgs::Pose& ego_pose,
-    const double ego_linear_velocity,
-    const std::vector<autoware_msgs::Waypoint>& reference_waypoints,
-    const std::vector<Point>& lane_points,
-    const std::unique_ptr<autoware_msgs::DetectedObjectArray>& objects_ptr,
-    FrenetPoint& origin_frenet_point,
-    std::unique_ptr<ReferencePoint>& current_reference_point,
-    std::unique_ptr<Trajectory>& kept_current_trajectory);
+  // bool getCurrentOriginPointAndReferencePoint(
+  //   const geometry_msgs::Pose& ego_pose,
+  //   const double ego_linear_velocity,
+  //   const std::vector<autoware_msgs::Waypoint>& reference_waypoints,
+  //   const std::vector<Point>& lane_points,
+  //   const std::unique_ptr<autoware_msgs::DetectedObjectArray>& objects_ptr,
+  //   FrenetPoint& origin_frenet_point,
+  //   std::unique_ptr<ReferencePoint>& current_reference_point,
+  //   std::unique_ptr<Trajectory>& kept_current_trajectory);
     
-  bool getNextOriginPointAndReferencePoint(
-    const autoware_msgs::Waypoint& ego_waypoint,
-    const std::vector<autoware_msgs::Waypoint>& reference_waypoints,
-    const std::vector<Point>& lane_points,
-    const std::unique_ptr<autoware_msgs::DetectedObjectArray>& objects,
-    std::unique_ptr<Trajectory>& kept_current_trajectory,
-    std::unique_ptr<Trajectory>& kept_next_trajectory,
-    std::unique_ptr<ReferencePoint>& kept_current_reference_point,
-    std::unique_ptr<ReferencePoint>& kept_next_reference_point,
-    FrenetPoint& next_origin_point);
+  // bool getNextOriginPointAndReferencePoint(
+  //   const autoware_msgs::Waypoint& ego_waypoint,
+  //   const std::vector<autoware_msgs::Waypoint>& reference_waypoints,
+  //   const std::vector<Point>& lane_points,
+  //   const std::unique_ptr<autoware_msgs::DetectedObjectArray>& objects,
+  //   std::unique_ptr<Trajectory>& kept_current_trajectory,
+  //   std::unique_ptr<Trajectory>& kept_next_trajectory,
+  //   std::unique_ptr<ReferencePoint>& kept_current_reference_point,
+  //   std::unique_ptr<ReferencePoint>& kept_next_reference_point,
+  //   FrenetPoint& next_origin_point);
     
   bool isTrajectoryCollisionFree(
     const std::vector<autoware_msgs::Waypoint>& trajectory_points,
