@@ -103,7 +103,8 @@ void FrenetPlanner::doPlan(const geometry_msgs::PoseStamped& in_current_pose,
                      in_reference_waypoints,
                      in_objects_ptr,
                      entire_path,
-                     out_debug_trajectories);
+                     out_debug_trajectories,
+                     out_reference_points);
   out_trajectory.waypoints = entire_path;
   // previous_best_path_.reset(new std::vector<autoware_msgs::Waypoint>(entire_path));
  
@@ -116,7 +117,8 @@ bool FrenetPlanner::generateEntirePath(
   const std::vector<autoware_msgs::Waypoint>& reference_waypoints,
   const std::unique_ptr<autoware_msgs::DetectedObjectArray>& in_objects_ptr,
   std::vector<autoware_msgs::Waypoint>& entire_path,
-  std::vector<autoware_msgs::Lane>& out_debug_trajectories)
+  std::vector<autoware_msgs::Lane>& out_debug_trajectories,
+  std::vector<geometry_msgs::Point>& out_reference_points)
 {
   
   double frenet_s_position, frenet_d_position;
@@ -129,6 +131,7 @@ bool FrenetPlanner::generateEntirePath(
   origin_point.s_state(0) = frenet_s_position;
   double delta_s = 5;
   //TODO: better naming
+  geometry_msgs::Pose origin_pose = current_pose.pose;
   for(double current_target_path_length = delta_s; 
              current_target_path_length < 30;
              current_target_path_length += delta_s)
@@ -140,10 +143,13 @@ bool FrenetPlanner::generateEntirePath(
     reference_point.frenet_point = target_point;
     reference_point.lateral_max_offset = 3.0;
     reference_point.lateral_sampling_resolution = 0.5;
+    reference_point.longitudinal_max_offset = 0.0;
+    reference_point.longitudinal_sampling_resolution = 1.5;
+    
     
     
     std::vector<Trajectory> trajectories;
-    drawTrajectories(current_pose.pose,
+    drawTrajectories(origin_pose,
                      origin_point,
                      reference_point,
                      lane_points,
@@ -159,6 +165,8 @@ bool FrenetPlanner::generateEntirePath(
                          kept_reference_point,
                          kept_best_trajectory);
     origin_point = kept_best_trajectory->frenet_trajectory_points.back();
+    origin_pose = kept_best_trajectory->trajectory_points.waypoints.back().pose.pose;
+    out_reference_points.push_back(origin_pose.position);
     entire_path.insert
                 (entire_path.end(),
                   kept_best_trajectory->trajectory_points.waypoints.begin(),
@@ -169,7 +177,7 @@ bool FrenetPlanner::generateEntirePath(
 
 //TODO: draw trajectories based on reference_point parameters
 bool FrenetPlanner::drawTrajectories(
-              const geometry_msgs::Pose& ego_pose,
+              const geometry_msgs::Pose& origin_pose,
               const FrenetPoint& frenet_current_point,
               const ReferencePoint& reference_point,
               const std::vector<Point>& lane_points,
@@ -183,24 +191,30 @@ bool FrenetPlanner::drawTrajectories(
       lateral_offset<= reference_point.lateral_max_offset; 
       lateral_offset+=reference_point.lateral_sampling_resolution)
   {
-    FrenetPoint frenet_target_point;
-    frenet_target_point.d_state = reference_point.frenet_point.d_state;
-    frenet_target_point.s_state = reference_point.frenet_point.s_state;
-    frenet_target_point.d_state(0) += lateral_offset;
-    Trajectory trajectory;
-    if(generateTrajectory(
-        ego_pose,
-        lane_points,
-        reference_waypoints,
-        frenet_current_point,
-        frenet_target_point,
-        200,
-        dt_for_sampling_points_,
-        trajectory))
+    for(double longitudinal_offset = -1*reference_point.longitudinal_max_offset; 
+        longitudinal_offset<= reference_point.longitudinal_max_offset; 
+        longitudinal_offset+=reference_point.longitudinal_sampling_resolution)
     {
-      trajectories.push_back(trajectory);
+      FrenetPoint frenet_target_point;
+      frenet_target_point.d_state = reference_point.frenet_point.d_state;
+      frenet_target_point.s_state = reference_point.frenet_point.s_state;
+      frenet_target_point.d_state(0) += lateral_offset;
+      frenet_target_point.s_state(0) += longitudinal_offset;
+      Trajectory trajectory;
+      if(generateTrajectory(
+          origin_pose,
+          lane_points,
+          reference_waypoints,
+          frenet_current_point,
+          frenet_target_point,
+          200,
+          dt_for_sampling_points_,
+          trajectory))
+      {
+        trajectories.push_back(trajectory);
+      }
+      out_debug_trajectories.push_back(trajectory.trajectory_points);
     }
-    out_debug_trajectories.push_back(trajectory.trajectory_points);
   }
   if(trajectories.size()==0)
   {
@@ -221,16 +235,23 @@ bool FrenetPlanner::generateTrajectory(
     Trajectory& trajectory)
 {
   
+  Point nearest_lane_point;
+  getNearestPoint(ego_pose.position, lane_points, nearest_lane_point);
+  double yaw = tf::getYaw(ego_pose.orientation);
+  double lane_yaw = nearest_lane_point.rz;
+  double delta_yaw = yaw - lane_yaw;
+  // std::cerr << "delta yaw " << delta_yaw << std::endl;
+  // std::cerr << "tan delta_yaw " << std::tan(delta_yaw) << std::endl;
   double origin_s = origin_frenet_point.s_state(0);
   double target_s = reference_frenet_point.s_state(0);
   double delta_s = target_s - origin_s;
   Eigen::Matrix3d a; 
   a << std::pow(delta_s, 3), std::pow(delta_s, 2), delta_s,
-                       0                   ,                    0,       1,
-                                  3*delta_s*delta_s,            2*delta_s,       1;
+                          0,                    0,       1,
+          3*delta_s*delta_s,            2*delta_s,       1;
   double target_d = reference_frenet_point.d_state(0);
   Eigen::Vector3d b;
-  b << target_d, 0, 0;
+  b << target_d, std::tan(delta_yaw), 0;
   Eigen::Vector3d x = a.inverse()*b;
   
   double origin_d = origin_frenet_point.d_state(0);
@@ -567,6 +588,24 @@ void FrenetPlanner::getNearestPoints(const geometry_msgs::Point& point,
   if(min_dist > threshold)
   {
     std::cerr << "error: target is too far; might not be valid goal" << std::endl;
+  }
+}
+
+void FrenetPlanner::getNearestPoint(const geometry_msgs::Point& compare_point,
+                                    const std::vector<Point>& lane_points,
+                                    Point& nearest_point)
+{
+  double min_dist = 99999;
+  for(const auto& sub_point: lane_points)
+  {
+    double dx = compare_point.x - sub_point.tx;
+    double dy = compare_point.y - sub_point.ty;
+    double dist = std::sqrt(std::pow(dx, 2)+std::pow(dy, 2));
+    if(dist < min_dist)
+    {
+      min_dist = dist;
+      nearest_point = sub_point;
+    }
   }
 }
 

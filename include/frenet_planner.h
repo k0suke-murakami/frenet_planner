@@ -61,6 +61,8 @@ struct ReferencePoint
   FrenetPoint frenet_point;
   double lateral_max_offset;
   double lateral_sampling_resolution;
+  double longitudinal_max_offset;
+  double longitudinal_sampling_resolution;
 };
 
 struct TrajecotoryPoint
@@ -156,13 +158,18 @@ private:
     const std::vector<autoware_msgs::Waypoint>& reference_waypoints,
     const std::unique_ptr<autoware_msgs::DetectedObjectArray>& in_objects_ptr,
     std::vector<autoware_msgs::Waypoint>& path_points,
-    std::vector<autoware_msgs::Lane>& out_debug_trajectories
+    std::vector<autoware_msgs::Lane>& out_debug_trajectories,
+    std::vector<geometry_msgs::Point>& out_reference_points
     );
 
   void  getNearestPoints(const geometry_msgs::Point& point,
                         const std::vector<Point>& nearest_lane_points,
                         Point& nearest_point,
                         Point& second_nearest_point);
+                        
+  void  getNearestPoint(const geometry_msgs::Point& point,
+                        const std::vector<Point>& nearest_lane_points,
+                        Point& nearest_point);
   
   void getNearestWaypoint(const geometry_msgs::Point& point,
                           const  std::vector<autoware_msgs::Waypoint>& waypoints,

@@ -471,29 +471,29 @@ void FrenetPlannerROS::timerCallback(const ros::TimerEvent &e)
     points_marker_array.markers.push_back(trajectory_marker);
     unique_id++;
     
-    //arrow
-    for (const auto& waypoint: out_trajectory.waypoints)
-    {
-      visualization_msgs::Marker trajectory_arrow_marker;
-      trajectory_arrow_marker.lifetime = ros::Duration(0.2);
-      trajectory_arrow_marker.header = in_pose_ptr_->header;
-      trajectory_arrow_marker.ns = std::string("trajectory_arrow_marker");
-      trajectory_arrow_marker.action = visualization_msgs::Marker::ADD;
-      trajectory_arrow_marker.id = unique_id;
-      trajectory_arrow_marker.type = visualization_msgs::Marker::ARROW;
-      trajectory_arrow_marker.scale.x = 1;
-      trajectory_arrow_marker.scale.y = 0.1;
-      trajectory_arrow_marker.scale.z = 0.1;
+    // //arrow
+    // for (const auto& waypoint: out_trajectory.waypoints)
+    // {
+    //   visualization_msgs::Marker trajectory_arrow_marker;
+    //   trajectory_arrow_marker.lifetime = ros::Duration(0.2);
+    //   trajectory_arrow_marker.header = in_pose_ptr_->header;
+    //   trajectory_arrow_marker.ns = std::string("trajectory_arrow_marker");
+    //   trajectory_arrow_marker.action = visualization_msgs::Marker::ADD;
+    //   trajectory_arrow_marker.id = unique_id;
+    //   trajectory_arrow_marker.type = visualization_msgs::Marker::ARROW;
+    //   trajectory_arrow_marker.scale.x = 1;
+    //   trajectory_arrow_marker.scale.y = 0.1;
+    //   trajectory_arrow_marker.scale.z = 0.1;
 
-      // Arrows are blue
-      trajectory_arrow_marker.color.b = 1.0f;
-      trajectory_arrow_marker.color.a = 1.0;
-      trajectory_arrow_marker.pose.position = waypoint.pose.pose.position;
-      trajectory_arrow_marker.pose.orientation = waypoint.pose.pose.orientation;
-      unique_id++;
+    //   // Arrows are blue
+    //   trajectory_arrow_marker.color.b = 1.0f;
+    //   trajectory_arrow_marker.color.a = 1.0;
+    //   trajectory_arrow_marker.pose.position = waypoint.pose.pose.position;
+    //   trajectory_arrow_marker.pose.orientation = waypoint.pose.pose.orientation;
+    //   unique_id++;
       
-      points_marker_array.markers.push_back(trajectory_arrow_marker);
-    }
+    //   points_marker_array.markers.push_back(trajectory_arrow_marker);
+    // }
     
     //text
     size_t debug_wp_id = 0;
