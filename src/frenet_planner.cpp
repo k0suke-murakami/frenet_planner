@@ -250,11 +250,11 @@ bool FrenetPlanner::generateTrajectory(
                           0,                    0,       1,
           3*delta_s*delta_s,            2*delta_s,       1;
   double target_d = reference_frenet_point.d_state(0);
+  double origin_d = origin_frenet_point.d_state(0);
   Eigen::Vector3d b;
-  b << target_d, std::tan(delta_yaw), 0;
+  b << target_d - origin_d, std::tan(delta_yaw), 0;
   Eigen::Vector3d x = a.inverse()*b;
   
-  double origin_d = origin_frenet_point.d_state(0);
   const size_t num_sample = 10;
   for(size_t i = 1; i <= num_sample; i++)
   {
