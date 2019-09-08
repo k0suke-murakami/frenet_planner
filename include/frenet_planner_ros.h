@@ -17,8 +17,6 @@
 #ifndef FRENET_PLANNER_ROS_H
 #define FRENET_PLANNER_ROS_H
 
-#include <geometry_msgs/TransformStamped.h>
-
 struct Point;
 
 namespace tf2_ros
@@ -51,6 +49,7 @@ namespace geometry_msgs
 { 
   ROS_DECLARE_MESSAGE(PoseStamped);
   ROS_DECLARE_MESSAGE(TwistStamped);
+  ROS_DECLARE_MESSAGE(TransformStamped);
 }
 
 class FrenetPlannerROS
@@ -78,11 +77,10 @@ private:
   
   ros::Timer timer_;
   
-  geometry_msgs::TransformStamped wp2gridmap_tf_;
-  
   
   std::unique_ptr<tf2_ros::Buffer> tf2_buffer_ptr_;
   std::unique_ptr<tf2_ros::TransformListener> tf2_listner_ptr_;
+  std::unique_ptr<geometry_msgs::TransformStamped> lidar2map_tf_;
   
   
   

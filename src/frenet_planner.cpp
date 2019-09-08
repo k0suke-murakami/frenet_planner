@@ -93,7 +93,6 @@ void FrenetPlanner::doPlan(const geometry_msgs::PoseStamped& in_current_pose,
               const std::vector<Point>& in_nearest_lane_points,
               const std::vector<autoware_msgs::Waypoint>& in_reference_waypoints,
               const std::unique_ptr<autoware_msgs::DetectedObjectArray>& in_objects_ptr,
-              const geometry_msgs::TransformStamped& in_wp2map_tf,
               autoware_msgs::Lane& out_trajectory,
               std::vector<autoware_msgs::Lane>& out_debug_trajectories,
               std::vector<geometry_msgs::Point>& out_reference_points)

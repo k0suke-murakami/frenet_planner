@@ -27,6 +27,7 @@
 
 //TODO: in order to visualize text velocity
 #include <tf/transform_datatypes.h>
+#include <geometry_msgs/TransformStamped.h>
 
 
 #include <autoware_msgs/Lane.h>
@@ -157,7 +158,24 @@ void FrenetPlannerROS::currentVelocityCallback(const geometry_msgs::TwistStamped
 
 void FrenetPlannerROS::gridmapCallback(const grid_map_msgs::GridMap& msg)
 { 
-  in_gridmap_ptr_.reset(new grid_map_msgs::GridMap(msg));
+  if(in_waypoints_ptr_)
+  {
+    geometry_msgs::TransformStamped lidar2map_tf;
+    try
+    {
+        lidar2map_tf = tf2_buffer_ptr_->lookupTransform(
+          /*target*/  in_waypoints_ptr_->header.frame_id, 
+          /*src*/ msg.info.header.frame_id,
+          ros::Time(0));
+        lidar2map_tf_.reset(new geometry_msgs::TransformStamped(lidar2map_tf));
+    }
+    catch (tf2::TransformException &ex)
+    {
+        ROS_WARN("%s", ex.what());
+        return;
+    }
+    in_gridmap_ptr_.reset(new grid_map_msgs::GridMap(msg));
+  }
 }
 
 void FrenetPlannerROS::objectsCallback(const autoware_msgs::DetectedObjectArray& msg)
@@ -169,13 +187,14 @@ void FrenetPlannerROS::objectsCallback(const autoware_msgs::DetectedObjectArray&
       std::cerr << "ssize of objects is 0" << std::endl;
       return;
     }
-    geometry_msgs::TransformStamped objects2map_tf;
+    geometry_msgs::TransformStamped lidar2map_tf;
     try
     {
-        objects2map_tf = tf2_buffer_ptr_->lookupTransform(
+        lidar2map_tf = tf2_buffer_ptr_->lookupTransform(
           /*target*/  in_waypoints_ptr_->header.frame_id, 
           /*src*/ msg.header.frame_id,
           ros::Time(0));
+        lidar2map_tf_.reset(new geometry_msgs::TransformStamped(lidar2map_tf));
     }
     catch (tf2::TransformException &ex)
     {
@@ -191,7 +210,7 @@ void FrenetPlannerROS::objectsCallback(const autoware_msgs::DetectedObjectArray&
       current_object_pose.header = object.header;
       current_object_pose.pose = object.pose;
       geometry_msgs::PoseStamped transformed_pose;
-      tf2::doTransform(current_object_pose, transformed_pose, objects2map_tf);
+      tf2::doTransform(current_object_pose, transformed_pose, *lidar2map_tf_);
       object.pose = transformed_pose.pose;
     }
   }
@@ -229,7 +248,7 @@ void FrenetPlannerROS::timerCallback(const ros::TimerEvent &e)
     grid_map::Matrix& data = grid_map.get(layer_name);
     
     //grid_length y and grid_length_x respectively
-    dope::Index2 size({50, 150});
+    dope::Index2 size({100, 300});
     dope::Grid<float, 2> f(size);
     dope::Grid<dope::SizeType, 2> indices(size);
     bool is_empty_cost = true;
@@ -270,6 +289,12 @@ void FrenetPlannerROS::timerCallback(const ros::TimerEvent &e)
       }
     }
     
+    // 3. 現在日時を再度取得
+    std::chrono::high_resolution_clock::time_point distance_end = std::chrono::high_resolution_clock::now();
+    // 経過時間を取得
+    std::chrono::nanoseconds elapsed_time = std::chrono::duration_cast<std::chrono::nanoseconds>(distance_end - begin);
+    std::cout <<"distance transform " <<elapsed_time.count()/(1000.0*1000.0)<< " milli sec" << std::endl;
+    
     grid_map[layer_name] = data;
     sensor_msgs::PointCloud2 distance_pointcloud;
     grid_map::GridMapRosConverter::toPointCloud(grid_map,
@@ -279,11 +304,6 @@ void FrenetPlannerROS::timerCallback(const ros::TimerEvent &e)
     gridmap_pointcloud_pub_.publish(distance_pointcloud);
     
 
-    // 3. 現在日時を再度取得
-    std::chrono::high_resolution_clock::time_point distance_end = std::chrono::high_resolution_clock::now();
-    // 経過時間を取得(
-    std::chrono::nanoseconds elapsed_time = std::chrono::duration_cast<std::chrono::nanoseconds>(distance_end - begin);
-    std::cout <<"distance transform " <<elapsed_time.count()/(1000.0*1000.0)<< " milli sec" << std::endl;
 
   
     //TODO: refactor 
@@ -357,7 +377,6 @@ void FrenetPlannerROS::timerCallback(const ros::TimerEvent &e)
                                 local_center_points, 
                                 local_reference_waypoints,
                                 in_objects_ptr_,
-                                wp2gridmap_tf_,
                                 out_trajectory,
                                 out_debug_trajectories,
                                 out_target_points);
