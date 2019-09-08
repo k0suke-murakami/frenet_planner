@@ -28,6 +28,7 @@ namespace tf2_ros
 class FrenetPlanner;
 class VectorMap;
 class CalculateCenterLine;
+class ModifiedReferencePathGenerator;
 
 namespace autoware_msgs
 {
@@ -93,6 +94,7 @@ private:
   std::unique_ptr<FrenetPlanner> frenet_planner_ptr_;
   std::unique_ptr<VectorMap> vectormap_load_ptr_;
   std::unique_ptr<CalculateCenterLine> calculate_center_line_ptr_;
+  std::unique_ptr<ModifiedReferencePathGenerator> modified_reference_path_generator_ptr_;
   std::unique_ptr<std::vector<Point>> global_center_points_ptr_;
   
   void waypointsCallback(const autoware_msgs::Lane& msg);

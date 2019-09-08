@@ -43,8 +43,8 @@
 #include "frenet_planner.h"
 #include "vectormap_ros.h"
 #include "vectormap_struct.h"
-
 #include "calculate_center_line.h"
+#include "modified_reference_path_generator.h"
 
 #include "frenet_planner_ros.h"
 
@@ -114,6 +114,7 @@ FrenetPlannerROS::FrenetPlannerROS()
   {
     calculate_center_line_ptr_.reset(new CalculateCenterLine());
   }
+  modified_reference_path_generator_ptr_.reset(new ModifiedReferencePathGenerator());
   
   tf2_buffer_ptr_.reset(new tf2_ros::Buffer());
   tf2_listner_ptr_.reset(new tf2_ros::TransformListener(*tf2_buffer_ptr_));

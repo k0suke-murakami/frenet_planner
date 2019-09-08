@@ -84,6 +84,7 @@ add_executable(frenet_planner
   src/frenet_planner.cpp
   src/vectormap_ros.cpp
   src/calculate_center_line.cpp
+  src/modified_reference_path_generator.cpp
 )
 
 target_link_libraries(frenet_planner
