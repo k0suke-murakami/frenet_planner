@@ -37,6 +37,16 @@ namespace autoware_msgs
   ROS_DECLARE_MESSAGE(DetectedObjectArray); 
 }
 
+namespace grid_map_msgs
+{
+  ROS_DECLARE_MESSAGE(GridMap); 
+}
+
+namespace grid_map
+{
+  class GridMap;
+}
+
 namespace geometry_msgs
 { 
   ROS_DECLARE_MESSAGE(PoseStamped);
@@ -60,6 +70,7 @@ private:
   ros::Subscriber current_velocity_sub_;
   ros::Subscriber final_waypoints_sub_;
   ros::Subscriber objects_sub_;
+  ros::Subscriber grid_map_sub_;
   
   bool use_global_waypoints_as_center_line_;
   bool has_calculated_center_line_from_global_waypoints_;
@@ -78,6 +89,7 @@ private:
   std::unique_ptr<geometry_msgs::PoseStamped> in_pose_ptr_;
   std::unique_ptr<geometry_msgs::TwistStamped> in_twist_ptr_;
   std::unique_ptr<autoware_msgs::DetectedObjectArray> in_objects_ptr_;
+  std::unique_ptr<grid_map::GridMap> in_gridmap_ptr_;
   
   std::unique_ptr<FrenetPlanner> frenet_planner_ptr_;
   std::unique_ptr<VectorMap> vectormap_load_ptr_;
@@ -88,6 +100,7 @@ private:
   void currentPoseCallback(const geometry_msgs::PoseStamped& msg);
   void currentVelocityCallback(const geometry_msgs::TwistStamped& msg);
   void objectsCallback(const autoware_msgs::DetectedObjectArray& msg);
+  void gridmapCallback(const grid_map_msgs::GridMap& msg);
   void timerCallback(const ros::TimerEvent &e);
   void loadVectormap();
   Point getNearestPoint(const geometry_msgs::PoseStamped& ego_pose);

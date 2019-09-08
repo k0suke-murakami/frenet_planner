@@ -32,6 +32,13 @@
 #include <autoware_msgs/Lane.h>
 #include <autoware_msgs/DetectedObjectArray.h>
 
+#include <grid_map_ros/GridMapRosConverter.hpp>
+#include <grid_map_ros/grid_map_ros.hpp>
+#include <grid_map_msgs/GridMap.h>
+
+#include <distance_transform/distance_transform.hpp>
+
+
 #include "frenet_planner.h"
 #include "vectormap_ros.h"
 #include "vectormap_struct.h"
@@ -117,6 +124,7 @@ FrenetPlannerROS::FrenetPlannerROS()
   current_pose_sub_ = nh_.subscribe("/current_pose", 1, &FrenetPlannerROS::currentPoseCallback, this);
   current_velocity_sub_ = nh_.subscribe("/current_velocity", 1, &FrenetPlannerROS::currentVelocityCallback, this);
   objects_sub_ = nh_.subscribe("/detection/lidar_detector/objects", 1, &FrenetPlannerROS::objectsCallback, this);
+  grid_map_sub_ = nh_.subscribe("/semantics/costmap", 1, &FrenetPlannerROS::gridmapCallback, this);
   // double timer_callback_dt = 0.05;
   // double timer_callback_dt = 0.1;
   // double timer_callback_dt = 1.0;
@@ -143,8 +151,14 @@ void FrenetPlannerROS::currentPoseCallback(const geometry_msgs::PoseStamped & ms
 
 void FrenetPlannerROS::currentVelocityCallback(const geometry_msgs::TwistStamped& msg)
 {
-  
   in_twist_ptr_.reset(new geometry_msgs::TwistStamped(msg));
+}
+
+void FrenetPlannerROS::gridmapCallback(const grid_map_msgs::GridMap& msg)
+{ 
+  grid_map::GridMap grid_map;
+  grid_map::GridMapRosConverter::fromMessage(msg, grid_map);
+  in_gridmap_ptr_.reset(new grid_map::GridMap(grid_map));
 }
 
 void FrenetPlannerROS::objectsCallback(const autoware_msgs::DetectedObjectArray& msg)
@@ -198,11 +212,48 @@ void FrenetPlannerROS::timerCallback(const ros::TimerEvent &e)
   {
     std::cerr << "waypoints not arrive" << std::endl;
   }
+  if(!in_gridmap_ptr_)
+  {
+    std::cerr << "costmap not arrive" << std::endl;
+  }
   
   if(in_pose_ptr_ && 
      in_twist_ptr_ && 
-     in_waypoints_ptr_) 
+     in_waypoints_ptr_ && 
+     in_gridmap_ptr_) 
   { 
+    std::cerr << "aaaa" << in_gridmap_ptr_->getLayers().size() << std::endl;
+    
+    std::cerr << "aaaa" << in_gridmap_ptr_->getLayers().back() << std::endl;
+    grid_map::Matrix& data = in_gridmap_ptr_->get(in_gridmap_ptr_->getLayers().back());
+    for (grid_map::GridMapIterator iterator(*in_gridmap_ptr_); !iterator.isPastEnd(); ++iterator)
+    {
+      const int i = iterator.getLinearIndex();
+      std::cerr << "dsta " << data(i) << std::endl;
+    }
+    
+    dope::Index2 size({2, 2});
+    dope::Grid<float, 2> f(size);
+    dope::Grid<dope::SizeType, 2> indices(size);
+    for (dope::SizeType i = 0; i < size[0]; ++i)
+        for (dope::SizeType j = 0; j < size[1]; ++j) {
+            if (data(i*2 + j) > 0)
+                f[i][j] = 0.0f;
+            else
+                f[i][j] = std::numeric_limits<float>::max();
+        }
+
+	// Note: this is necessary at least at the first distance transform execution
+	// and every time a reset is desired; it is not, instead, when updating
+    dt::DistanceTransform::initializeIndices(indices);
+    dt::DistanceTransform::distanceTransformL2(f, f, false, 1);
+    
+    for (dope::SizeType i = 0; i < size[0]; ++i) {
+        for (dope::SizeType j = 0; j < size[1]; ++j)
+            std::cout << std::setw(7) << f[i][j] << ' ';
+        std::cout << std::endl;
+    }
+    
     // 1. 現在日時を取得
     std::chrono::high_resolution_clock::time_point begin = std::chrono::high_resolution_clock::now();
 

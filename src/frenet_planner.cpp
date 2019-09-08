@@ -11,6 +11,7 @@
 #include "vectormap_struct.h"
 
 
+
 //TODO: make namespace/file for utility method
 //TODO: better naming 
 double calculate2DDistace(const geometry_msgs::Point& point1,
