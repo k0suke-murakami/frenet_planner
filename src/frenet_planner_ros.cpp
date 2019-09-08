@@ -236,12 +236,15 @@ void FrenetPlannerROS::timerCallback(const ros::TimerEvent &e)
     dope::Grid<float, 2> f(size);
     dope::Grid<dope::SizeType, 2> indices(size);
     for (dope::SizeType i = 0; i < size[0]; ++i)
-        for (dope::SizeType j = 0; j < size[1]; ++j) {
-            if (data(i*2 + j) > 0)
-                f[i][j] = 0.0f;
-            else
-                f[i][j] = std::numeric_limits<float>::max();
-        }
+    {
+      for (dope::SizeType j = 0; j < size[1]; ++j) 
+      {
+          if (data(i*2 + j) > 0.01)
+              f[i][j] = 0.0f;
+          else
+              f[i][j] = std::numeric_limits<float>::max();
+      }
+    }
 
 	// Note: this is necessary at least at the first distance transform execution
 	// and every time a reset is desired; it is not, instead, when updating
