@@ -372,32 +372,6 @@ void FrenetPlannerROS::timerCallback(const ros::TimerEvent &e)
     visualization_msgs::MarkerArray points_marker_array;
     int unique_id = 0;
     
-    // visualization_msgs::Marker reference_lane_points_marker;
-    // reference_lane_points_marker.lifetime = ros::Duration(0.2);
-    // reference_lane_points_marker.header = in_pose_ptr_->header;
-    // reference_lane_points_marker.ns = std::string("lane_points_marker");
-    // reference_lane_points_marker.action = visualization_msgs::Marker::MODIFY;
-    // reference_lane_points_marker.pose.orientation.w = 1.0;
-    // reference_lane_points_marker.id = unique_id;
-    // reference_lane_points_marker.type = visualization_msgs::Marker::SPHERE_LIST;
-    // reference_lane_points_marker.scale.x = 0.5;
-
-    // // Points are yellow
-    // reference_lane_points_marker.color.r = 1.0f;
-    // reference_lane_points_marker.color.g = 1.0f;
-    // reference_lane_points_marker.color.a = 1;
-    // for (const auto& next_point: local_center_points)
-    // {
-    //   geometry_msgs::Point geometry_point;
-    //   geometry_point.x = next_point.tx;
-    //   geometry_point.y = next_point.ty;
-    //   geometry_point.z = next_point.rz;
-    //   reference_lane_points_marker.points.push_back(geometry_point);
-    // }
-    // points_marker_array.markers.push_back(reference_lane_points_marker);
-    // unique_id++;
-    
-    
     // visualize debug target point
     visualization_msgs::Marker debug_target_point;
     debug_target_point.lifetime = ros::Duration(0.2);
