@@ -82,6 +82,7 @@ private:
   std::unique_ptr<tf2_ros::Buffer> tf2_buffer_ptr_;
   std::unique_ptr<tf2_ros::TransformListener> tf2_listner_ptr_;
   std::unique_ptr<geometry_msgs::TransformStamped> lidar2map_tf_;
+  std::unique_ptr<geometry_msgs::TransformStamped> map2lidar_tf_;
   
   
   

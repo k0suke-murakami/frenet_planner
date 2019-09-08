@@ -159,6 +159,7 @@ void FrenetPlannerROS::gridmapCallback(const grid_map_msgs::GridMap& msg)
   if(in_waypoints_ptr_)
   {
     geometry_msgs::TransformStamped lidar2map_tf;
+    geometry_msgs::TransformStamped map2lidar_tf;
     try
     {
         lidar2map_tf = tf2_buffer_ptr_->lookupTransform(
@@ -166,6 +167,11 @@ void FrenetPlannerROS::gridmapCallback(const grid_map_msgs::GridMap& msg)
           /*src*/ msg.info.header.frame_id,
           ros::Time(0));
         lidar2map_tf_.reset(new geometry_msgs::TransformStamped(lidar2map_tf));
+        map2lidar_tf = tf2_buffer_ptr_->lookupTransform(
+          /*target*/  msg.info.header.frame_id, 
+          /*src*/ in_waypoints_ptr_->header.frame_id,
+          ros::Time(0));
+        map2lidar_tf_.reset(new geometry_msgs::TransformStamped(map2lidar_tf));
     }
     catch (tf2::TransformException &ex)
     {
@@ -328,6 +334,7 @@ void FrenetPlannerROS::timerCallback(const ros::TimerEvent &e)
       start_point,
       goal_point,
       *lidar2map_tf_,
+      *map2lidar_tf_,
       modified_reference_path,
       debug_clearance_map_pointcloud);
     debug_clearance_map_pointcloud.header = in_gridmap_ptr_->info.header;

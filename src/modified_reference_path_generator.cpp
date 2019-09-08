@@ -1,11 +1,15 @@
 #include <autoware_msgs/Waypoint.h>
+
 #include <geometry_msgs/TransformStamped.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 
 #include <grid_map_ros/GridMapRosConverter.hpp>
 #include <grid_map_ros/grid_map_ros.hpp>
 #include <grid_map_msgs/GridMap.h>
 
 #include <distance_transform/distance_transform.hpp>
+
+
 
 
 
@@ -24,6 +28,7 @@ void ModifiedReferencePathGenerator::generateModifiedReferencePath(
   const geometry_msgs::Point& start_point,
   const geometry_msgs::Point& goal_point,
   const geometry_msgs::TransformStamped& lidar2map_tf,
+  const geometry_msgs::TransformStamped& map2lidar_tf,
   std::vector<autoware_msgs::Waypoint>& modified_reference_path,
   sensor_msgs::PointCloud2& debug_pointcloud_clearance_map)
 {
@@ -76,4 +81,5 @@ void ModifiedReferencePathGenerator::generateModifiedReferencePath(
   grid_map::GridMapRosConverter::toPointCloud(clearance_map,
                                               layer_name,
                                               debug_pointcloud_clearance_map);
+  
 }

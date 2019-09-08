@@ -45,6 +45,7 @@ public:
       const geometry_msgs::Point& start_point,
       const geometry_msgs::Point& goal_point,
       const geometry_msgs::TransformStamped& lidar2map_tf,
+      const geometry_msgs::TransformStamped& map2lidar_tf,
       std::vector<autoware_msgs::Waypoint>& modified_reference_path,
       sensor_msgs::PointCloud2& debug_pointcloud_clearance_map);
 };
