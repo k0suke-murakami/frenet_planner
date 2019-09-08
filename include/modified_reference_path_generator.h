@@ -41,7 +41,7 @@ public:
   ~ModifiedReferencePathGenerator();
   
   void generateModifiedReferencePath(
-      const grid_map::GridMap& clearance_map,
+      grid_map::GridMap& clearance_map,
       const geometry_msgs::Point& start_point,
       const geometry_msgs::Point& goal_point,
       const geometry_msgs::TransformStamped& lidar2map_tf,

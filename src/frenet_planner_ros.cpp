@@ -37,9 +37,6 @@
 #include <grid_map_ros/grid_map_ros.hpp>
 #include <grid_map_msgs/GridMap.h>
 
-#include <distance_transform/distance_transform.hpp>
-
-
 #include "frenet_planner.h"
 #include "vectormap_ros.h"
 #include "vectormap_struct.h"
@@ -241,72 +238,6 @@ void FrenetPlannerROS::timerCallback(const ros::TimerEvent &e)
      in_waypoints_ptr_ && 
      in_gridmap_ptr_) 
   { 
-    // 1. 現在日時を取得
-    std::chrono::high_resolution_clock::time_point begin = std::chrono::high_resolution_clock::now();
-    grid_map::GridMap grid_map;
-    grid_map::GridMapRosConverter::fromMessage(*in_gridmap_ptr_, grid_map);
-    std::string layer_name = grid_map.getLayers().back();
-    grid_map::Matrix& data = grid_map.get(layer_name);
-    
-    //grid_length y and grid_length_x respectively
-    dope::Index2 size({100, 300});
-    dope::Grid<float, 2> f(size);
-    dope::Grid<dope::SizeType, 2> indices(size);
-    bool is_empty_cost = true;
-    for (dope::SizeType i = 0; i < size[0]; ++i)
-    {
-      for (dope::SizeType j = 0; j < size[1]; ++j) 
-      {
-          if (data(i*size[1] + j) > 0.01)
-          {
-            f[i][j] = 0.0f;
-            is_empty_cost = false;
-          }
-          else
-          {
-            f[i][j] = std::numeric_limits<float>::max();
-          }
-      }
-    }
-
-    // Note: this is necessary at least at the first distance transform execution
-    // and every time a reset is desired; it is not, instead, when updating
-    dt::DistanceTransform::initializeIndices(indices);
-    dt::DistanceTransform::distanceTransformL2(f, f, false, 1);
-    
-    
-    for (dope::SizeType i = 0; i < size[0]; ++i)
-    {
-      for (dope::SizeType j = 0; j < size[1]; ++j) 
-      {
-        if(is_empty_cost)
-        {
-          data(i*size[1] + j) = 1;
-        }
-        else
-        {
-          data(i*size[1] + j) = f[i][j];
-        }
-      }
-    }
-    
-    // 3. 現在日時を再度取得
-    std::chrono::high_resolution_clock::time_point distance_end = std::chrono::high_resolution_clock::now();
-    // 経過時間を取得
-    std::chrono::nanoseconds elapsed_time = std::chrono::duration_cast<std::chrono::nanoseconds>(distance_end - begin);
-    std::cout <<"distance transform " <<elapsed_time.count()/(1000.0*1000.0)<< " milli sec" << std::endl;
-    
-    grid_map[layer_name] = data;
-    sensor_msgs::PointCloud2 distance_pointcloud;
-    grid_map::GridMapRosConverter::toPointCloud(grid_map,
-                                                layer_name,
-                                                distance_pointcloud);
-    distance_pointcloud.header = in_gridmap_ptr_->info.header;
-    gridmap_pointcloud_pub_.publish(distance_pointcloud);
-    
-
-
-  
     //TODO: refactor 
     std::vector<Point> local_center_points;
     if(use_global_waypoints_as_center_line_)
@@ -367,6 +298,46 @@ void FrenetPlannerROS::timerCallback(const ros::TimerEvent &e)
     {
       local_reference_waypoints.push_back(in_waypoints_ptr_->waypoints[i]);
     }
+    
+    
+    // 1. 現在日時を取得
+    std::chrono::high_resolution_clock::time_point begin = std::chrono::high_resolution_clock::now();
+    double min_dist_from_goal = 99999;
+    const double search_distance = 25;
+    size_t closest_goal_wp_index = 0;
+    for (size_t i = 0; i < local_reference_waypoints.size(); i++)
+    {
+      double dx = local_reference_waypoints[i].pose.pose.position.x - in_pose_ptr_->pose.position.x;
+      double dy = local_reference_waypoints[i].pose.pose.position.y - in_pose_ptr_->pose.position.y;
+      double distance = std::sqrt(std::pow(dx, 2)+std::pow(dy,2));
+      if(distance < min_dist_from_goal && distance > search_distance)
+      {
+        min_dist_from_goal = distance;
+        closest_goal_wp_index = i;
+      }
+    }
+    geometry_msgs::Point goal_point = local_reference_waypoints[closest_goal_wp_index].pose.pose.position;
+    geometry_msgs::Point start_point = in_pose_ptr_->pose.position;
+    
+    grid_map::GridMap grid_map;
+    grid_map::GridMapRosConverter::fromMessage(*in_gridmap_ptr_, grid_map);
+    std::vector<autoware_msgs::Waypoint> modified_reference_path;
+    sensor_msgs::PointCloud2 debug_clearance_map_pointcloud;
+    modified_reference_path_generator_ptr_->generateModifiedReferencePath(
+      grid_map,
+      start_point,
+      goal_point,
+      *lidar2map_tf_,
+      modified_reference_path,
+      debug_clearance_map_pointcloud);
+    debug_clearance_map_pointcloud.header = in_gridmap_ptr_->info.header;
+    gridmap_pointcloud_pub_.publish(debug_clearance_map_pointcloud);
+     
+    // 3. 現在日時を再度取得
+    std::chrono::high_resolution_clock::time_point distance_end = std::chrono::high_resolution_clock::now();
+    // 経過時間を取得
+    std::chrono::nanoseconds elapsed_time = std::chrono::duration_cast<std::chrono::nanoseconds>(distance_end - begin);
+    std::cout <<"distance transform " <<elapsed_time.count()/(1000.0*1000.0)<< " milli sec" << std::endl;
     
     
     //TODO: somehow improve interface
@@ -445,6 +416,23 @@ void FrenetPlannerROS::timerCallback(const ros::TimerEvent &e)
       debug_target_point.points.push_back(point);
     }
     points_marker_array.markers.push_back(debug_target_point);
+    unique_id++;
+    
+    // visualize debug goal point
+    visualization_msgs::Marker debug_goal_point;
+    debug_goal_point.lifetime = ros::Duration(0.2);
+    debug_goal_point.header = in_pose_ptr_->header;
+    debug_goal_point.ns = std::string("debug_goal_point_marker");
+    debug_goal_point.action = visualization_msgs::Marker::MODIFY;
+    debug_goal_point.pose.orientation.w = 1.0;
+    debug_goal_point.id = unique_id;
+    debug_goal_point.type = visualization_msgs::Marker::SPHERE_LIST;
+    debug_goal_point.scale.x = 0.9;
+    debug_goal_point.color.r = 0.0f;
+    debug_goal_point.color.g = 1.0f;
+    debug_goal_point.color.a = 1;
+    debug_goal_point.points.push_back(goal_point);
+    points_marker_array.markers.push_back(debug_goal_point);
     unique_id++;
     
     //text
@@ -568,30 +556,6 @@ void FrenetPlannerROS::timerCallback(const ros::TimerEvent &e)
     }
     points_marker_array.markers.push_back(trajectory_marker);
     unique_id++;
-    
-    // //arrow
-    // for (const auto& waypoint: out_trajectory.waypoints)
-    // {
-    //   visualization_msgs::Marker trajectory_arrow_marker;
-    //   trajectory_arrow_marker.lifetime = ros::Duration(0.2);
-    //   trajectory_arrow_marker.header = in_pose_ptr_->header;
-    //   trajectory_arrow_marker.ns = std::string("trajectory_arrow_marker");
-    //   trajectory_arrow_marker.action = visualization_msgs::Marker::ADD;
-    //   trajectory_arrow_marker.id = unique_id;
-    //   trajectory_arrow_marker.type = visualization_msgs::Marker::ARROW;
-    //   trajectory_arrow_marker.scale.x = 1;
-    //   trajectory_arrow_marker.scale.y = 0.1;
-    //   trajectory_arrow_marker.scale.z = 0.1;
-
-    //   // Arrows are blue
-    //   trajectory_arrow_marker.color.b = 1.0f;
-    //   trajectory_arrow_marker.color.a = 1.0;
-    //   trajectory_arrow_marker.pose.position = waypoint.pose.pose.position;
-    //   trajectory_arrow_marker.pose.orientation = waypoint.pose.pose.orientation;
-    //   unique_id++;
-      
-    //   points_marker_array.markers.push_back(trajectory_arrow_marker);
-    // }
     
     //text
     size_t debug_wp_id = 0;
