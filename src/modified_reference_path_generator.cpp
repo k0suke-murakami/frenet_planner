@@ -82,4 +82,7 @@ void ModifiedReferencePathGenerator::generateModifiedReferencePath(
                                               layer_name,
                                               debug_pointcloud_clearance_map);
   
+  geometry_msgs::Point start_point_in_lidar_tf, goal_point_in_lidar_tf;
+  tf2::doTransform(start_point, start_point_in_lidar_tf, map2lidar_tf);
+  tf2::doTransform(goal_point, goal_point_in_lidar_tf, map2lidar_tf);
 }
