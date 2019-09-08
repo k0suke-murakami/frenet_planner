@@ -351,14 +351,14 @@ void FrenetPlannerROS::timerCallback(const ros::TimerEvent &e)
     autoware_msgs::Lane out_trajectory;
     std::vector<autoware_msgs::Lane> out_debug_trajectories;
     std::vector<geometry_msgs::Point> out_target_points;
-    frenet_planner_ptr_->doPlan(*in_pose_ptr_, 
-                                *in_twist_ptr_, 
-                                local_center_points, 
-                                local_reference_waypoints,
-                                in_objects_ptr_,
-                                out_trajectory,
-                                out_debug_trajectories,
-                                out_target_points);
+    // frenet_planner_ptr_->doPlan(*in_pose_ptr_, 
+    //                             *in_twist_ptr_, 
+    //                             local_center_points, 
+    //                             local_reference_waypoints,
+    //                             in_objects_ptr_,
+    //                             out_trajectory,
+    //                             out_debug_trajectories,
+    //                             out_target_points);
     //3. 現在日時を再度取得
     std::chrono::high_resolution_clock::time_point path_end = std::chrono::high_resolution_clock::now();
 
@@ -397,6 +397,26 @@ void FrenetPlannerROS::timerCallback(const ros::TimerEvent &e)
       debug_target_point.points.push_back(point);
     }
     points_marker_array.markers.push_back(debug_target_point);
+    unique_id++;
+    
+    // visualize debug modified reference point
+    visualization_msgs::Marker debug_modified_reference_points;
+    debug_modified_reference_points.lifetime = ros::Duration(0.2);
+    debug_modified_reference_points.header = in_pose_ptr_->header;
+    debug_modified_reference_points.ns = std::string("debug_modified_reference_points");
+    debug_modified_reference_points.action = visualization_msgs::Marker::MODIFY;
+    debug_modified_reference_points.pose.orientation.w = 1.0;
+    debug_modified_reference_points.id = unique_id;
+    debug_modified_reference_points.type = visualization_msgs::Marker::SPHERE_LIST;
+    debug_modified_reference_points.scale.x = 0.9;
+    debug_modified_reference_points.color.r = 1.0f;
+    debug_modified_reference_points.color.g = 1.0f;
+    debug_modified_reference_points.color.a = 1;
+    for(const auto& waypoint: modified_reference_path)
+    {
+      debug_modified_reference_points.points.push_back(waypoint.pose.pose.position);
+    }
+    points_marker_array.markers.push_back(debug_modified_reference_points);
     unique_id++;
     
     // visualize debug goal point
