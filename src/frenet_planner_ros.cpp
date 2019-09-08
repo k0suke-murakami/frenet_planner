@@ -120,6 +120,7 @@ FrenetPlannerROS::FrenetPlannerROS()
   
   optimized_waypoints_pub_ = nh_.advertise<autoware_msgs::Lane>("final_waypoints", 1, true);
   markers_pub_ = nh_.advertise<visualization_msgs::MarkerArray>("frenet_planner_debug_markes", 1, true);
+  gridmap_pointcloud_pub_ = nh_.advertise<sensor_msgs::PointCloud2>("gridmap_pointcloud", 1, true);
   final_waypoints_sub_ = nh_.subscribe("base_waypoints", 1, &FrenetPlannerROS::waypointsCallback, this);
   current_pose_sub_ = nh_.subscribe("/current_pose", 1, &FrenetPlannerROS::currentPoseCallback, this);
   current_velocity_sub_ = nh_.subscribe("/current_velocity", 1, &FrenetPlannerROS::currentVelocityCallback, this);
@@ -156,9 +157,7 @@ void FrenetPlannerROS::currentVelocityCallback(const geometry_msgs::TwistStamped
 
 void FrenetPlannerROS::gridmapCallback(const grid_map_msgs::GridMap& msg)
 { 
-  grid_map::GridMap grid_map;
-  grid_map::GridMapRosConverter::fromMessage(msg, grid_map);
-  in_gridmap_ptr_.reset(new grid_map::GridMap(grid_map));
+  in_gridmap_ptr_.reset(new grid_map_msgs::GridMap(msg));
 }
 
 void FrenetPlannerROS::objectsCallback(const autoware_msgs::DetectedObjectArray& msg)
@@ -222,45 +221,70 @@ void FrenetPlannerROS::timerCallback(const ros::TimerEvent &e)
      in_waypoints_ptr_ && 
      in_gridmap_ptr_) 
   { 
-    std::cerr << "aaaa" << in_gridmap_ptr_->getLayers().size() << std::endl;
+    // 1. 現在日時を取得
+    std::chrono::high_resolution_clock::time_point begin = std::chrono::high_resolution_clock::now();
+    grid_map::GridMap grid_map;
+    grid_map::GridMapRosConverter::fromMessage(*in_gridmap_ptr_, grid_map);
+    std::string layer_name = grid_map.getLayers().back();
+    grid_map::Matrix& data = grid_map.get(layer_name);
     
-    std::cerr << "aaaa" << in_gridmap_ptr_->getLayers().back() << std::endl;
-    grid_map::Matrix& data = in_gridmap_ptr_->get(in_gridmap_ptr_->getLayers().back());
-    for (grid_map::GridMapIterator iterator(*in_gridmap_ptr_); !iterator.isPastEnd(); ++iterator)
-    {
-      const int i = iterator.getLinearIndex();
-      std::cerr << "dsta " << data(i) << std::endl;
-    }
-    
-    dope::Index2 size({2, 2});
+    //grid_length y and grid_length_x respectively
+    dope::Index2 size({50, 150});
     dope::Grid<float, 2> f(size);
     dope::Grid<dope::SizeType, 2> indices(size);
+    bool is_empty_cost = true;
     for (dope::SizeType i = 0; i < size[0]; ++i)
     {
       for (dope::SizeType j = 0; j < size[1]; ++j) 
       {
-          if (data(i*2 + j) > 0.01)
-              f[i][j] = 0.0f;
+          if (data(i*size[1] + j) > 0.01)
+          {
+            f[i][j] = 0.0f;
+            is_empty_cost = false;
+          }
           else
-              f[i][j] = std::numeric_limits<float>::max();
+          {
+            f[i][j] = std::numeric_limits<float>::max();
+          }
       }
     }
 
-	// Note: this is necessary at least at the first distance transform execution
-	// and every time a reset is desired; it is not, instead, when updating
+    // Note: this is necessary at least at the first distance transform execution
+    // and every time a reset is desired; it is not, instead, when updating
     dt::DistanceTransform::initializeIndices(indices);
     dt::DistanceTransform::distanceTransformL2(f, f, false, 1);
     
-    for (dope::SizeType i = 0; i < size[0]; ++i) {
-        for (dope::SizeType j = 0; j < size[1]; ++j)
-            std::cout << std::setw(7) << f[i][j] << ' ';
-        std::cout << std::endl;
+    
+    for (dope::SizeType i = 0; i < size[0]; ++i)
+    {
+      for (dope::SizeType j = 0; j < size[1]; ++j) 
+      {
+        if(is_empty_cost)
+        {
+          data(i*size[1] + j) = 1;
+        }
+        else
+        {
+          data(i*size[1] + j) = f[i][j];
+        }
+      }
     }
     
-    // 1. 現在日時を取得
-    std::chrono::high_resolution_clock::time_point begin = std::chrono::high_resolution_clock::now();
-
+    grid_map[layer_name] = data;
+    sensor_msgs::PointCloud2 distance_pointcloud;
+    grid_map::GridMapRosConverter::toPointCloud(grid_map,
+                                                layer_name,
+                                                distance_pointcloud);
+    distance_pointcloud.header = in_gridmap_ptr_->info.header;
+    gridmap_pointcloud_pub_.publish(distance_pointcloud);
     
+
+    // 3. 現在日時を再度取得
+    std::chrono::high_resolution_clock::time_point distance_end = std::chrono::high_resolution_clock::now();
+    // 経過時間を取得(
+    std::chrono::nanoseconds elapsed_time = std::chrono::duration_cast<std::chrono::nanoseconds>(distance_end - begin);
+    std::cout <<"distance transform " <<elapsed_time.count()/(1000.0*1000.0)<< " milli sec" << std::endl;
+
   
     //TODO: refactor 
     std::vector<Point> local_center_points;
@@ -337,12 +361,12 @@ void FrenetPlannerROS::timerCallback(const ros::TimerEvent &e)
                                 out_trajectory,
                                 out_debug_trajectories,
                                 out_target_points);
-    // 3. 現在日時を再度取得
-    std::chrono::high_resolution_clock::time_point end = std::chrono::high_resolution_clock::now();
+    //3. 現在日時を再度取得
+    std::chrono::high_resolution_clock::time_point path_end = std::chrono::high_resolution_clock::now();
 
     // 経過時間を取得
-    std::chrono::nanoseconds elapsed_time = std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin);
-    std::cout << elapsed_time.count()/(1000.0*1000.0)<< " milli sec" << std::endl;
+    std::chrono::nanoseconds elapsed_time2 = std::chrono::duration_cast<std::chrono::nanoseconds>(path_end - distance_end);
+    std::cout << "path generation "<<elapsed_time2.count()/(1000.0*1000.0)<< " milli sec" << std::endl;
     // std::cerr << "output num wps" << out_trajectory.waypoints.size() << std::endl;
     std::cerr << "------------"  << std::endl;
     

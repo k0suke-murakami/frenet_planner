@@ -66,6 +66,7 @@ private:
   ros::NodeHandle nh_, private_nh_;
   ros::Publisher optimized_waypoints_pub_;
   ros::Publisher markers_pub_;
+  ros::Publisher gridmap_pointcloud_pub_;
   ros::Subscriber current_pose_sub_;
   ros::Subscriber current_velocity_sub_;
   ros::Subscriber final_waypoints_sub_;
@@ -89,7 +90,7 @@ private:
   std::unique_ptr<geometry_msgs::PoseStamped> in_pose_ptr_;
   std::unique_ptr<geometry_msgs::TwistStamped> in_twist_ptr_;
   std::unique_ptr<autoware_msgs::DetectedObjectArray> in_objects_ptr_;
-  std::unique_ptr<grid_map::GridMap> in_gridmap_ptr_;
+  std::unique_ptr<grid_map_msgs::GridMap> in_gridmap_ptr_;
   
   std::unique_ptr<FrenetPlanner> frenet_planner_ptr_;
   std::unique_ptr<VectorMap> vectormap_load_ptr_;

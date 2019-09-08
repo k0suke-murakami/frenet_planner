@@ -173,7 +173,7 @@ bool FrenetPlanner::generateEntirePath(
                   kept_best_trajectory->trajectory_points.waypoints.begin(),
                   kept_best_trajectory->trajectory_points.waypoints.end());
   }
-  std::cerr << "entire path point size " << entire_path.size()<< std::endl;
+  // std::cerr << "entire path point size " << entire_path.size()<< std::endl;
 }
 
 //TODO: draw trajectories based on reference_point parameters
@@ -186,8 +186,8 @@ bool FrenetPlanner::drawTrajectories(
               std::vector<Trajectory>& trajectories,
               std::vector<autoware_msgs::Lane>& out_debug_trajectories)
 {
-  std::cerr << "lateral offset " << reference_point.lateral_max_offset << std::endl;
-  std::cerr << "lateral samp " << reference_point.lateral_sampling_resolution << std::endl;
+  // std::cerr << "lateral offset " << reference_point.lateral_max_offset << std::endl;
+  // std::cerr << "lateral samp " << reference_point.lateral_sampling_resolution << std::endl;
   for(double lateral_offset = -1*reference_point.lateral_max_offset; 
       lateral_offset<= reference_point.lateral_max_offset; 
       lateral_offset+=reference_point.lateral_sampling_resolution)
@@ -761,9 +761,9 @@ bool FrenetPlanner::selectBestTrajectory(
   bool has_got_best_trajectory = false;
   for(const auto& index: indexes)
   {
-    std::cerr << "------"  << std::endl;
-    std::cerr << "act las " << ref_last_waypoints_costs[index]
-              <<std::endl;
+    // std::cerr << "------"  << std::endl;
+    // std::cerr << "act las " << ref_last_waypoints_costs[index]
+              // <<std::endl;
     bool is_collision_free = true;
     if(objects_ptr)
     {
