@@ -159,8 +159,11 @@ ModifiedReferencePathGenerator::~ModifiedReferencePathGenerator()
 }
 
 void ModifiedReferencePathGenerator::generateModifiedReferencePath(
-    grid_map::GridMap& clearance_map, const geometry_msgs::Point& start_point, const geometry_msgs::Point& goal_point,
-    const geometry_msgs::TransformStamped& lidar2map_tf, const geometry_msgs::TransformStamped& map2lidar_tf,
+    grid_map::GridMap& clearance_map, 
+    const geometry_msgs::Point& start_point, 
+    const geometry_msgs::Point& goal_point,
+    const geometry_msgs::TransformStamped& lidar2map_tf, 
+    const geometry_msgs::TransformStamped& map2lidar_tf,
     std::vector<autoware_msgs::Waypoint>& modified_reference_path,
     sensor_msgs::PointCloud2& debug_pointcloud_clearance_map)
 {
@@ -291,6 +294,12 @@ void ModifiedReferencePathGenerator::generateModifiedReferencePath(
       }
     }
   }
+  
+  autoware_msgs::Waypoint start_waypoint;
+  start_waypoint.pose.pose.position = start_point;
+  start_waypoint.pose.pose.orientation.w = 1.0;
+  modified_reference_path.push_back(start_waypoint);
+  
   Node current_node = s_closed.back();
   while(current_node.parent_node != nullptr)
   {
@@ -307,4 +316,11 @@ void ModifiedReferencePathGenerator::generateModifiedReferencePath(
     
     current_node = *current_node.parent_node;
   }
+  
+  autoware_msgs::Waypoint goal_waypoint;
+  goal_waypoint.pose.pose.position = goal_point;
+  goal_waypoint.pose.pose.orientation.w = 1.0;
+  modified_reference_path.push_back(goal_waypoint);
+  
+  
 }
