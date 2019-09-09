@@ -328,6 +328,7 @@ void FrenetPlannerROS::timerCallback(const ros::TimerEvent &e)
     grid_map::GridMap grid_map;
     grid_map::GridMapRosConverter::fromMessage(*in_gridmap_ptr_, grid_map);
     std::vector<autoware_msgs::Waypoint> modified_reference_path;
+    std::vector<autoware_msgs::Waypoint> debug_modified_smoothed_reference_path;
     sensor_msgs::PointCloud2 debug_clearance_map_pointcloud;
     modified_reference_path_generator_ptr_->generateModifiedReferencePath(
       grid_map,
@@ -336,6 +337,7 @@ void FrenetPlannerROS::timerCallback(const ros::TimerEvent &e)
       *lidar2map_tf_,
       *map2lidar_tf_,
       modified_reference_path,
+      debug_modified_smoothed_reference_path,
       debug_clearance_map_pointcloud);
     debug_clearance_map_pointcloud.header = in_gridmap_ptr_->info.header;
     gridmap_pointcloud_pub_.publish(debug_clearance_map_pointcloud);
@@ -418,6 +420,68 @@ void FrenetPlannerROS::timerCallback(const ros::TimerEvent &e)
     }
     points_marker_array.markers.push_back(debug_modified_reference_points);
     unique_id++;
+    
+     // visualize debug modified reference point
+    visualization_msgs::Marker debug_modified_smoothed_reference_points;
+    debug_modified_smoothed_reference_points.lifetime = ros::Duration(0.2);
+    debug_modified_smoothed_reference_points.header = in_pose_ptr_->header;
+    debug_modified_smoothed_reference_points.ns = std::string("debug_modified_smoothed_reference_points");
+    debug_modified_smoothed_reference_points.action = visualization_msgs::Marker::MODIFY;
+    debug_modified_smoothed_reference_points.pose.orientation.w = 1.0;
+    debug_modified_smoothed_reference_points.id = unique_id;
+    debug_modified_smoothed_reference_points.type = visualization_msgs::Marker::SPHERE_LIST;
+    debug_modified_smoothed_reference_points.scale.x = 0.9;
+    debug_modified_smoothed_reference_points.color.r = 1.0f;
+    debug_modified_smoothed_reference_points.color.a = 1;
+    for(const auto& waypoint: debug_modified_smoothed_reference_path)
+    {
+      debug_modified_smoothed_reference_points.points.push_back(waypoint.pose.pose.position);
+    }
+    points_marker_array.markers.push_back(debug_modified_smoothed_reference_points);
+    unique_id++;
+    
+    //text modified reference path curvature
+    for (const auto& point: debug_modified_smoothed_reference_path)
+    {
+      visualization_msgs::Marker debuf_modified_curvature_text;
+      debuf_modified_curvature_text.lifetime = ros::Duration(0.2);
+      debuf_modified_curvature_text.header = in_pose_ptr_->header;
+      debuf_modified_curvature_text.ns = std::string("debuf_modified_curvature_text");
+      debuf_modified_curvature_text.action = visualization_msgs::Marker::ADD;
+      debuf_modified_curvature_text.id = unique_id;
+      debuf_modified_curvature_text.type = visualization_msgs::Marker::TEXT_VIEW_FACING;
+      debuf_modified_curvature_text.scale.x = 1;
+      debuf_modified_curvature_text.scale.y = 0.1;
+      debuf_modified_curvature_text.scale.z = 0.4;
+
+      // texts are green
+      debuf_modified_curvature_text.color.g = 1.0f;
+      debuf_modified_curvature_text.color.a = 1.0;
+      
+      
+      geometry_msgs::Point relative_p;
+      relative_p.y = 0.8;
+      geometry_msgs::Pose pose;
+      pose.position = point.pose.pose.position;
+      pose.orientation.x = 0;
+      pose.orientation.y = 0;
+      pose.orientation.z = 0;
+      pose.orientation.w = 1.0;
+      tf::Transform inverse;
+      tf::poseMsgToTF(pose, inverse);
+
+      tf::Point p;
+      pointMsgToTF(relative_p, p);
+      tf::Point tf_p = inverse * p;
+      geometry_msgs::Point tf_point_msg;
+      pointTFToMsg(tf_p, tf_point_msg);
+      debuf_modified_curvature_text.pose.position = tf_point_msg;
+      debuf_modified_curvature_text.text = std::to_string(point.cost);
+      
+      unique_id++;
+      
+      points_marker_array.markers.push_back(debuf_modified_curvature_text); 
+    }
     
     // visualize debug goal point
     visualization_msgs::Marker debug_goal_point;

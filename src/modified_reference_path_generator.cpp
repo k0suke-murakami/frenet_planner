@@ -12,14 +12,6 @@
 
 #include "modified_reference_path_generator.h"
 
-// struct Node
-// { 
-//   Eigen::Vector2d p;
-//   double r;
-//   double g;
-//   double h;
-//   double f;
-// };
 
 class Node
 {
@@ -32,7 +24,6 @@ public:
   double g;
   double h;
   double f;
-  // Node* parent_node;
   std::shared_ptr<Node> parent_node;
 };
 
@@ -319,6 +310,7 @@ void ModifiedReferencePathGenerator::generateModifiedReferencePath(
     const geometry_msgs::TransformStamped& lidar2map_tf, 
     const geometry_msgs::TransformStamped& map2lidar_tf,
     std::vector<autoware_msgs::Waypoint>& modified_reference_path,
+    std::vector<autoware_msgs::Waypoint>& debug_modified_smoothed_reference_path,
     sensor_msgs::PointCloud2& debug_pointcloud_clearance_map)
 {
   std::string layer_name = clearance_map.getLayers().back();
@@ -580,16 +572,34 @@ void ModifiedReferencePathGenerator::generateModifiedReferencePath(
     std::cerr << "for debug num size of path points " << refined_path.size()<< " "<< new_refined_path.size() << std::endl;
     new_j = calculateSmoothness(new_refined_path);
     
-    refined_path = new_refined_path;
     double delta_j = std::abs(new_j - prev_j)/new_j;
     std::cerr << "prev j " << prev_j << std::endl;
     std::cerr << "new j " << new_j << std::endl;
     std::cerr << "delta j" << delta_j << std::endl;
-    if(new_j < prev_j && delta_j < 0.001)
+    if(new_j < prev_j)
     {
-      std::cerr << "break!" << std::endl;
-      break;
+      refined_path = new_refined_path;
+      if(delta_j < 0.001)
+      {
+        std::cerr << "break!" << std::endl;
+        break;  
+      }
     }
   } while (new_j < prev_j);
+  
+  for(const auto& point: refined_path)
+  {
+    geometry_msgs::Pose pose_in_lidar_tf;
+    pose_in_lidar_tf.position.x = point.position(0);
+    pose_in_lidar_tf.position.y = point.position(1);
+    pose_in_lidar_tf.position.z = start_point_in_lidar_tf.z;
+    pose_in_lidar_tf.orientation.w = 1.0;
+    geometry_msgs::Pose pose_in_map_tf;
+    tf2::doTransform(pose_in_lidar_tf, pose_in_map_tf, lidar2map_tf);
+    autoware_msgs::Waypoint waypoint;
+    waypoint.pose.pose = pose_in_map_tf;
+    waypoint.cost = point.curvature;
+    debug_modified_smoothed_reference_path.push_back(waypoint);   
+  }
   
 }
