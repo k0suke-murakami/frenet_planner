@@ -24,7 +24,7 @@
 class Node
 {
 public:
-  Node(/* args */);
+  Node();
   ~Node();
   
   Eigen::Vector2d p;
@@ -36,14 +36,12 @@ public:
   std::shared_ptr<Node> parent_node;
 };
 
-Node::Node(/* args */)
+Node::Node()
 {
-  // parent_node = new Node();
 }
 
 Node::~Node()
 {
-  // delete parent_node;
 }
 
 
@@ -118,8 +116,6 @@ std::vector<Node> expandNode(Node& parent_node,
     child_node.g = parent_node.g + current_r;
     child_node.h = calculate2DDistace(child_node.p, goal_node.p);
     child_node.f = child_node.g + child_node.h;
-    // child_node.parent_node = new Node();
-    // child_node.parent_node = &parent_node;
     child_node.parent_node = std::make_shared<Node>(parent_node);
     child_nodes.push_back(child_node);
   }
@@ -226,20 +222,14 @@ void ModifiedReferencePathGenerator::generateModifiedReferencePath(
   goal_p(0) = goal_point_in_lidar_tf.x; 
   goal_p(1) = goal_point_in_lidar_tf.y; 
   
-  std::cerr << "aaaa1"  << std::endl;
   std::vector<Node> s_open;
-  std::cerr << "aaaa2"  << std::endl;
   Node* a = new Node();
-  std::cerr << "aaaa2-0"  << std::endl;
   Node initial_node;
-  std::cerr << "aaaa2-1"  << std::endl;
   double clearance_to_m = 0.1;
   const double min_r = 1.6;
   const double max_r = 10;
   initial_node.p = start_p;
   double initial_r = clearance_map.atPosition(layer_name, initial_node.p) * clearance_to_m ;
-  std::cerr << "aaaa2-2"  << std::endl;
-  
   if(initial_r < min_r)
   {
     initial_r = min_r;
@@ -248,7 +238,6 @@ void ModifiedReferencePathGenerator::generateModifiedReferencePath(
   {
     initial_r = max_r;
   }
-  std::cerr << "aaaa3"  << std::endl;
   initial_node.r = initial_r;
   initial_node.g = 0;
   initial_node.h = calculate2DDistace(initial_node.p, goal_p);
@@ -256,7 +245,6 @@ void ModifiedReferencePathGenerator::generateModifiedReferencePath(
   initial_node.parent_node = nullptr;
   s_open.push_back(initial_node);
   
-  std::cerr << "aaaa4"  << std::endl;
   Node goal_node;
   goal_node.p = goal_p;
   double goal_r = clearance_map.atPosition(layer_name, goal_node.p) * clearance_to_m ;
@@ -280,7 +268,6 @@ void ModifiedReferencePathGenerator::generateModifiedReferencePath(
   {
     std::sort(s_open.begin(), s_open.end(), compareF);
     Node lowest_f_node = s_open.front();
-    std::cerr << "lowest f node r " << lowest_f_node.r << std::endl;
     s_open.erase(s_open.begin());
     if(f_goal < lowest_f_node.f)
     {
@@ -294,7 +281,6 @@ void ModifiedReferencePathGenerator::generateModifiedReferencePath(
     }
     else
     {
-      std::cerr << "expad "  << std::endl;
       std::vector<Node> child_nodes = 
           expandNode(lowest_f_node, clearance_map, goal_node);
       s_open.insert(s_open.end(),
@@ -306,9 +292,7 @@ void ModifiedReferencePathGenerator::generateModifiedReferencePath(
         f_goal = lowest_f_node.f;
       }
     }
-    std::cerr << "s open size " << s_open.size() << std::endl;
   }
-  std::cerr << "f goal " << f_goal << std::endl;
   Node current_node = s_closed.back();
   while(current_node.parent_node != nullptr)
   {
@@ -325,17 +309,4 @@ void ModifiedReferencePathGenerator::generateModifiedReferencePath(
     
     current_node = *current_node.parent_node;
   }
-  // for(const auto& node: s_closed)
-  // {
-  //   geometry_msgs::Pose pose_in_lidar_tf;
-  //   pose_in_lidar_tf.position.x = node.p(0);
-  //   pose_in_lidar_tf.position.y = node.p(1);
-  //   pose_in_lidar_tf.position.z = start_point_in_lidar_tf.z;
-  //   pose_in_lidar_tf.orientation.w = 1.0;
-  //   geometry_msgs::Pose pose_in_map_tf;
-  //   tf2::doTransform(pose_in_lidar_tf, pose_in_map_tf, lidar2map_tf);
-  //   autoware_msgs::Waypoint waypoint;
-  //   waypoint.pose.pose = pose_in_map_tf;
-  //   modified_reference_path.push_back(waypoint);
-  // }
 }
