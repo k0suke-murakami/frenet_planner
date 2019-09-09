@@ -166,9 +166,9 @@ ModifiedReferencePathGenerator::~ModifiedReferencePathGenerator()
 }
 
 double ModifiedReferencePathGenerator::calculateCurvatureFromThreePoints(
-          Eigen::Vector2d& path_point1,
-          Eigen::Vector2d& path_point2,
-          Eigen::Vector2d& path_point3)
+          const Eigen::Vector2d& path_point1,
+          const Eigen::Vector2d& path_point2,
+          const Eigen::Vector2d& path_point3)
 {
   double x1 = path_point1(0);
   double y1 = path_point1(1);
@@ -237,6 +237,81 @@ bool ModifiedReferencePathGenerator::calculateCurvatureForPathPoints(
   return true;
 }
 
+double ModifiedReferencePathGenerator::calculateSmoothness(
+  const std::vector<PathPoint>& path_points)
+{
+  double sum_smoothness = 0;
+  for(size_t i = 1; i < path_points.size(); i++ )
+  {
+    double delta_distance = calculate2DDistace(path_points[i-1].position,
+                                               path_points[i].position);
+    double previous_curvature = path_points[i - 1].curvature;
+    double current_curvature = path_points[i].curvature;
+    double calculated_smoothness = ((std::pow(previous_curvature,2) + 
+                                    std::pow(current_curvature,2))*
+                                    delta_distance)/2;
+    // std::cerr << "prev c " << previous_curvature << std::endl;
+    // std::cerr << "curr c " << current_curvature << std::endl;
+    // std::cerr << "calculated smoothness " << calculated_smoothness << std::endl;
+    sum_smoothness += calculated_smoothness;
+  }
+  return sum_smoothness;
+}
+
+Eigen::Vector2d ModifiedReferencePathGenerator::generateNewPosition(
+          const Eigen::Vector2d& parent_of_path_point1,
+          const Eigen::Vector2d& path_point1,
+          const Eigen::Vector2d& path_point2,
+          const Eigen::Vector2d& path_point3,
+          const grid_map::GridMap& clearance_map,
+          const double min_r,
+          const double max_k,
+          const double resolustion_of_gridmap)
+{
+  double x1 = path_point1(0);
+  double y1 = path_point1(1);
+  double x2 = path_point2(0);
+  double y2 = path_point2(1);
+  double x3 = path_point3(0);
+  double y3 = path_point3(1);
+  
+  //calculate initial e
+  Eigen::Vector2d e;
+  double ey = (1/(1+((y3 - y1)/(x3 - x1))*(y2/x2)))*(-1*x1*((y3 - y1)/(x3 - x1))+y1);
+  // double ex = -1*(y2/x2)*ey;
+  double ex = -1*((y3 - y1)/(x3 - x1))*(ey - y2) + x2;
+  e << ex, ey;
+  
+  do
+  {
+    double k = calculateCurvatureFromThreePoints(parent_of_path_point1,
+                                      path_point1,
+                                      e);
+    try 
+    {
+      double r = clearance_map.atPosition(clearance_map.getLayers().back(),
+                                              e)*0.1;
+      if(r > min_r && k < max_k)
+      {
+        return e;
+      }
+      else
+      {
+        e = (e + path_point2)/2;
+      }
+      
+    }
+    catch (const std::out_of_range& error) 
+    {
+      return e;
+      std::cerr << "e " << e << std::endl;
+      std::cerr << "WARNING: could not find clearance in generateNewPostion " << std::endl;
+    }
+  }while(calculate2DDistace(e, path_point2) > 0.1);
+  return e;
+}
+
+
 void ModifiedReferencePathGenerator::generateModifiedReferencePath(
     grid_map::GridMap& clearance_map, 
     const geometry_msgs::Point& start_point, 
@@ -246,7 +321,6 @@ void ModifiedReferencePathGenerator::generateModifiedReferencePath(
     std::vector<autoware_msgs::Waypoint>& modified_reference_path,
     sensor_msgs::PointCloud2& debug_pointcloud_clearance_map)
 {
-  std::cerr << "aaaa "  << std::endl;
   std::string layer_name = clearance_map.getLayers().back();
   grid_map::Matrix data = clearance_map.get(layer_name);
 
@@ -443,7 +517,6 @@ void ModifiedReferencePathGenerator::generateModifiedReferencePath(
     if(r < min_r)
     {
       r = min_r;
-      std::cerr << "start point's clearance is wrong "  << std::endl;
     }
     goal_path_point.clearance = r;
   }
@@ -456,5 +529,67 @@ void ModifiedReferencePathGenerator::generateModifiedReferencePath(
   
   calculateCurvatureForPathPoints(path_points);
   
+  std::vector<PathPoint> refined_path = path_points;
+  double new_j, prev_j;
+  do
+  {
+    prev_j = calculateSmoothness(refined_path);
+    
+    if(refined_path.size() < 3)
+    {
+      std::cerr << "ERROR:somethign wrong"  << std::endl;
+    }
+    std::vector<PathPoint> new_refined_path;
+    new_refined_path.push_back(refined_path.front());
+    new_refined_path.push_back(refined_path[1]);
+    for(size_t i = 2; i < (refined_path.size()- 1); i++)
+    {
+      const double min_turning_radius = 5;
+      const double max_k = 1/min_turning_radius;
+      const double resolution_of_gridmap = clearance_map.getResolution();
+      Eigen::Vector2d new_position = 
+               generateNewPosition(refined_path[i - 2].position,
+                                refined_path[i - 1].position,
+                                refined_path[i].position,
+                                refined_path[i+1].position,
+                                clearance_map,
+                                min_r,
+                                max_k,
+                                resolution_of_gridmap);
+      double clearance;
+      try 
+      {
+        clearance = clearance_map.atPosition(clearance_map.getLayers().back(),
+                                             refined_path[i].position)*0.1;
+      }
+      catch (const std::out_of_range& e) 
+      {
+        std::cerr << "WARNING: could not find clearance for goal point " << std::endl;
+      }
+      double curvature = calculateCurvatureFromThreePoints(
+                               refined_path[i - 1].position,
+                               refined_path[i].position,
+                               refined_path[i+1].position);
+      PathPoint new_path_point;
+      new_path_point.position = new_position;
+      new_path_point.clearance = clearance;
+      new_path_point.curvature = curvature;
+      new_refined_path.push_back(new_path_point);
+    }
+    new_refined_path.push_back(refined_path.back());
+    std::cerr << "for debug num size of path points " << refined_path.size()<< " "<< new_refined_path.size() << std::endl;
+    new_j = calculateSmoothness(new_refined_path);
+    
+    refined_path = new_refined_path;
+    double delta_j = std::abs(new_j - prev_j)/new_j;
+    std::cerr << "prev j " << prev_j << std::endl;
+    std::cerr << "new j " << new_j << std::endl;
+    std::cerr << "delta j" << delta_j << std::endl;
+    if(new_j < prev_j && delta_j < 0.001)
+    {
+      std::cerr << "break!" << std::endl;
+      break;
+    }
+  } while (new_j < prev_j);
   
 }

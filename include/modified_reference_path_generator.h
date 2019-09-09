@@ -40,9 +40,23 @@ private:
   bool calculateCurvatureForPathPoints(
             std::vector<PathPoint>& path_points);
   double calculateCurvatureFromThreePoints(
-          Eigen::Vector2d& path_point1,
-          Eigen::Vector2d& path_point2,
-          Eigen::Vector2d& path_point3);
+          const Eigen::Vector2d& path_point1,
+          const Eigen::Vector2d& path_point2,
+          const Eigen::Vector2d& path_point3);
+          
+  double calculateSmoothness(
+          const std::vector<PathPoint>& path_points);
+          
+  Eigen::Vector2d generateNewPosition(
+          const Eigen::Vector2d& parent_of_path_point1,          
+          const Eigen::Vector2d& path_point1,
+          const Eigen::Vector2d& path_point2,
+          const Eigen::Vector2d& path_point3,
+          const grid_map::GridMap& clearance_map,
+          const double min_r,
+          const double max_k,
+          const double resolution_of_gridmap);
+          
 public:
   ModifiedReferencePathGenerator(/* args */);
   ~ModifiedReferencePathGenerator();
