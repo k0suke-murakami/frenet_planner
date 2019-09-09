@@ -32,10 +32,17 @@ namespace geometry_msgs
   ROS_DECLARE_MESSAGE(TransformStamped);
 }
 
+struct PathPoint;
+
 class ModifiedReferencePathGenerator
 {
 private:
-  /* data */
+  bool calculateCurvatureForPathPoints(
+            std::vector<PathPoint>& path_points);
+  double calculateCurvatureFromThreePoints(
+          Eigen::Vector2d& path_point1,
+          Eigen::Vector2d& path_point2,
+          Eigen::Vector2d& path_point3);
 public:
   ModifiedReferencePathGenerator(/* args */);
   ~ModifiedReferencePathGenerator();

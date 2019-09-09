@@ -44,6 +44,13 @@ Node::~Node()
 {
 }
 
+struct PathPoint
+{
+  Eigen::Vector2d position;
+  double clearance;
+  double curvature;
+};
+
 
 
 //TODO: make namespace/file for utility method
@@ -156,6 +163,78 @@ ModifiedReferencePathGenerator::ModifiedReferencePathGenerator(/* args */)
 
 ModifiedReferencePathGenerator::~ModifiedReferencePathGenerator()
 {
+}
+
+double ModifiedReferencePathGenerator::calculateCurvatureFromThreePoints(
+          Eigen::Vector2d& path_point1,
+          Eigen::Vector2d& path_point2,
+          Eigen::Vector2d& path_point3)
+{
+  double x1 = path_point1(0);
+  double y1 = path_point1(1);
+  double x2 = path_point2(0);
+  double y2 = path_point2(1);
+  double x3 = path_point3(0);
+  double y3 = path_point3(1);
+  
+  double a =  x1 * (y2 - y3) - y1 * (x2 - x3) + x2 * y3 - x3 * y2;
+
+  double b = (x1 * x1 + y1 * y1) * (y3 - y2) 
+          + (x2 * x2 + y2 * y2) * (y1 - y3)
+          + (x3 * x3 + y3 * y3) * (y2 - y1);
+
+  double c = (x1 * x1 + y1 * y1) * (x2 - x3) 
+          + (x2 * x2 + y2 * y2) * (x3 - x1) 
+          + (x3 * x3 + y3 * y3) * (x1 - x2);
+
+  
+  double x = -b / (2 * a);
+  double y = -c / (2 * a);
+  double r = std::sqrt(std::pow(x - x1, 2) + std::pow(y - y1, 2));
+  
+  // using cross product
+  // https://stackoverflow.com/questions/243945/calculating-a-2d-vectors-cross-product
+  double plus_or_minus_sign = (x1 - x2)*(y3 - y2) - (y1 - y2)*(x3 - x2);
+  Eigen::Vector2d v1, v2;
+  v1 << x1 - x2, y1 - y2;
+  v2 << x3 - x2, y3 - y2;
+  double yaw_by_cos = std::acos(v1.dot(v2)/(v1.norm()*v2.norm()));
+  
+  double curvature = 0;
+  //straight check
+  if(yaw_by_cos > (M_PI- 0.01))
+  {
+    curvature = 0;
+  }
+  else if(plus_or_minus_sign > 0)
+  {
+    curvature = -1/r;
+  }
+  else
+  {
+    curvature = 1/r;
+  }
+  return curvature;
+}
+
+bool ModifiedReferencePathGenerator::calculateCurvatureForPathPoints(
+  std::vector<PathPoint>& path_points)
+{
+  //calculateCurvatureFromFourPoints
+  for(size_t i = 1; i < (path_points.size() - 1); i++)
+  {
+    double curvature = calculateCurvatureFromThreePoints(
+                     path_points[i-1].position,
+                     path_points[i].position,
+                     path_points[i+1].position);
+    path_points[i].curvature = curvature;
+  }
+  if(path_points.size() > 1)
+  {
+    path_points.front().curvature = path_points[1].curvature;
+    path_points.back().curvature = path_points[path_points.size()-1].curvature;
+  }
+  return true;
 }
 
 void ModifiedReferencePathGenerator::generateModifiedReferencePath(
@@ -295,10 +374,34 @@ void ModifiedReferencePathGenerator::generateModifiedReferencePath(
     }
   }
   
+  std::vector<PathPoint> path_points;
+  
   autoware_msgs::Waypoint start_waypoint;
   start_waypoint.pose.pose.position = start_point;
   start_waypoint.pose.pose.orientation.w = 1.0;
   modified_reference_path.push_back(start_waypoint);
+  PathPoint start_path_point;
+  start_path_point.position(0) = start_point.x;
+  start_path_point.position(1) = start_point.y;
+  try 
+  {
+    double tmp_r = clearance_map.atPosition(clearance_map.getLayers().back(),
+                                            start_p)*0.1;
+    double r = std::min(tmp_r, max_r);
+    if(r < min_r)
+    {
+      r = min_r;
+      std::cerr << "start point's clearance is wrong "  << std::endl;
+    }
+    start_path_point.clearance = r;
+  }
+  catch (const std::out_of_range& e) 
+  {
+    std::cerr << "WARNING: could not find clearance for start point " << std::endl;
+  }
+  start_path_point.curvature = 0;
+  path_points.push_back(start_path_point);
+  
   
   Node current_node = s_closed.back();
   while(current_node.parent_node != nullptr)
@@ -314,13 +417,44 @@ void ModifiedReferencePathGenerator::generateModifiedReferencePath(
     waypoint.pose.pose = pose_in_map_tf;
     modified_reference_path.push_back(waypoint);
     
+    PathPoint path_point;
+    path_point.position = current_node.p;
+    path_point.clearance = current_node.r;
+    path_point.curvature = 0;
+    path_points.push_back(path_point);
+    
     current_node = *current_node.parent_node;
+    
   }
   
   autoware_msgs::Waypoint goal_waypoint;
   goal_waypoint.pose.pose.position = goal_point;
   goal_waypoint.pose.pose.orientation.w = 1.0;
   modified_reference_path.push_back(goal_waypoint);
+  
+  PathPoint goal_path_point;
+  goal_path_point.position(0) = goal_point.x;
+  goal_path_point.position(1) = goal_point.y;
+  try 
+  {
+    double tmp_r = clearance_map.atPosition(clearance_map.getLayers().back(),
+                                            goal_p)*0.1;
+    double r = std::min(tmp_r, max_r);
+    if(r < min_r)
+    {
+      r = min_r;
+      std::cerr << "start point's clearance is wrong "  << std::endl;
+    }
+    goal_path_point.clearance = r;
+  }
+  catch (const std::out_of_range& e) 
+  {
+    std::cerr << "WARNING: could not find clearance for goal point " << std::endl;
+  }
+  goal_path_point.curvature = 0;
+  path_points.push_back(goal_path_point);
+  
+  calculateCurvatureForPathPoints(path_points);
   
   
 }
