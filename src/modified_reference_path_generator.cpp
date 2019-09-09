@@ -271,12 +271,10 @@ void ModifiedReferencePathGenerator::generateModifiedReferencePath(
     s_open.erase(s_open.begin());
     if(f_goal < lowest_f_node.f)
     {
-      std::cerr << "break!!!!!" << std::endl;
       break;
     }
     else if(nodeExistInClosedNodes(lowest_f_node, s_closed))
     {
-      // std::cerr << "exist "  << std::endl;
       continue;
     }
     else
