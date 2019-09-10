@@ -205,6 +205,18 @@ double ModifiedReferencePathGenerator::calculateCurvatureFromThreePoints(
   {
     curvature = 1/r;
   }
+  if(1)
+  {
+    double a = (path_point1 - path_point2).norm();
+    double b = (path_point1 - path_point3).norm();
+    double c = (path_point2 - path_point3).norm();
+    double s = (a + b + c)/2;
+    double k = std::sqrt(s*(s-a)*(s-b)*(s-c));
+    double kpi = (4*k)/(a*b*c);
+    std::cerr << "curvature " << curvature << std::endl;
+    std::cerr << "paper " << kpi << std::endl;
+    curvature = kpi;
+  }
   return curvature;
 }
 
@@ -268,9 +280,36 @@ Eigen::Vector2d ModifiedReferencePathGenerator::generateNewPosition(
   
   //calculate initial e
   Eigen::Vector2d e;
-  double ey = (1/(1+((y3 - y1)/(x3 - x1))*(y2/x2)))*(-1*x1*((y3 - y1)/(x3 - x1))+y1);
-  // double ex = -1*(y2/x2)*ey;
-  double ex = -1*((y3 - y1)/(x3 - x1))*(ey - y2) + x2;
+  double ex, ey;
+  //http://atelier-peppe.jp/programTips/GEOMETRIC/KIKA_8.html
+  if(x1 == x3)
+  {
+    ex = x1;
+    ey = y2;
+  }
+  else if(y1 == y3)
+  {
+    ex = x2;
+    ey = y1;
+  }
+  else
+  {
+
+    double m1, m2, b1, b2;
+    // 線分の傾き
+    m1 = (y3 - y1) / (x3 - x1);
+    // 線分のY切片
+    b1 = y1 - (m1 * x1);
+
+    // 点ptを通り、線分lineに垂直な線の傾き
+    m2 = -1.0 / m1;
+    // 点ptを通り、線分lineに垂直な線のY切片
+    b2 = y2 - (m2 * x2);
+
+    // 交点算出
+    ex = (b2 - b1) / (m1 - m2);
+    ey = (b2 * m1 - b1 * m2) / (m1 - m2);
+  }
   e << ex, ey;
   
   do
@@ -317,7 +356,7 @@ void ModifiedReferencePathGenerator::generateModifiedReferencePath(
   grid_map::Matrix data = clearance_map.get(layer_name);
 
   // grid_length y and grid_length_x respectively
-  dope::Index2 size({ 100, 300 });
+  dope::Index2 size({ 200, 300 });
   dope::Grid<float, 2> f(size);
   dope::Grid<dope::SizeType, 2> indices(size);
   bool is_empty_cost = true;
@@ -447,8 +486,7 @@ void ModifiedReferencePathGenerator::generateModifiedReferencePath(
   start_waypoint.pose.pose.orientation.w = 1.0;
   modified_reference_path.push_back(start_waypoint);
   PathPoint start_path_point;
-  start_path_point.position(0) = start_point.x;
-  start_path_point.position(1) = start_point.y;
+  start_path_point.position = start_p;
   try 
   {
     double tmp_r = clearance_map.atPosition(clearance_map.getLayers().back(),
@@ -499,8 +537,7 @@ void ModifiedReferencePathGenerator::generateModifiedReferencePath(
   modified_reference_path.push_back(goal_waypoint);
   
   PathPoint goal_path_point;
-  goal_path_point.position(0) = goal_point.x;
-  goal_path_point.position(1) = goal_point.y;
+  goal_path_point.position = goal_p;
   try 
   {
     double tmp_r = clearance_map.atPosition(clearance_map.getLayers().back(),
@@ -590,6 +627,7 @@ void ModifiedReferencePathGenerator::generateModifiedReferencePath(
   for(const auto& point: refined_path)
   {
     geometry_msgs::Pose pose_in_lidar_tf;
+    
     pose_in_lidar_tf.position.x = point.position(0);
     pose_in_lidar_tf.position.y = point.position(1);
     pose_in_lidar_tf.position.z = start_point_in_lidar_tf.z;
@@ -601,5 +639,7 @@ void ModifiedReferencePathGenerator::generateModifiedReferencePath(
     waypoint.cost = point.curvature;
     debug_modified_smoothed_reference_path.push_back(waypoint);   
   }
+  
+  
   
 }
