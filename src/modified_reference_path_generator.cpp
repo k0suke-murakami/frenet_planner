@@ -341,6 +341,36 @@ Eigen::Vector2d ModifiedReferencePathGenerator::generateNewPosition(
   return e;
 }
 
+std::vector<double>  ModifiedReferencePathGenerator::generateOpenUniformKnotVector(
+     const int number_of_knot,
+     const int degree_of_b_spline)
+{
+  std::vector<double> knot_vector;
+  for(size_t i = 0; i < number_of_knot; i++)
+  {
+    if(i < (degree_of_b_spline+1))
+    {
+      knot_vector.push_back(0.0);
+    }
+    else if( i > number_of_knot - (degree_of_b_spline+1))
+    {
+      double knot = static_cast<double>(number_of_knot) - 1 - 2*static_cast<double>(degree_of_b_spline);
+      knot_vector.push_back(knot);
+    }
+    else
+    {
+      double knot = static_cast<double>(i) - static_cast<double>(degree_of_b_spline) - 1;
+      knot_vector.push_back(knot);
+    }
+  }
+  
+  for(auto& knot: knot_vector)
+  {
+    knot = knot / knot_vector.back();
+  }
+  return knot_vector;
+}
+
 
 void ModifiedReferencePathGenerator::generateModifiedReferencePath(
     grid_map::GridMap& clearance_map, 
@@ -640,6 +670,14 @@ void ModifiedReferencePathGenerator::generateModifiedReferencePath(
     debug_modified_smoothed_reference_path.push_back(waypoint);   
   }
   
-  
-  
+  std::cerr << "aaaa" << std::endl;
+  int number_of_control_points = refined_path.size();
+  int degree_of_b_spline = 3;
+  int number_of_knot = number_of_control_points + degree_of_b_spline + 1;
+  std::vector<double> knot_vector =  
+     generateOpenUniformKnotVector(number_of_knot, degree_of_b_spline);
+  for(const auto& knot: knot_vector)
+  {
+    std::cerr << "sssss " << knot << std::endl;
+  }
 }

@@ -57,6 +57,10 @@ private:
           const double max_k,
           const double resolution_of_gridmap);
           
+  std::vector<double> generateOpenUniformKnotVector(
+     const int number_of_knot,
+     const int degree_of_b_spline);
+          
 public:
   ModifiedReferencePathGenerator(/* args */);
   ~ModifiedReferencePathGenerator();
