@@ -60,6 +60,12 @@ private:
   std::vector<double> generateOpenUniformKnotVector(
      const int number_of_knot,
      const int degree_of_b_spline);
+     
+  double calaculateBasisFunction(
+     const std::vector<double>& knot_vector,
+     const size_t control_point_index,
+     const size_t basis_function_index,
+     const double function_value);
           
 public:
   ModifiedReferencePathGenerator(/* args */);
@@ -73,6 +79,7 @@ public:
       const geometry_msgs::TransformStamped& map2lidar_tf,
       std::vector<autoware_msgs::Waypoint>& modified_reference_path,
       std::vector<autoware_msgs::Waypoint>& debug_modified_smoothed_reference_path,      
+      std::vector<autoware_msgs::Waypoint>& debug_bspline_path,      
       sensor_msgs::PointCloud2& debug_pointcloud_clearance_map);
 };
 

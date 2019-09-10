@@ -329,6 +329,7 @@ void FrenetPlannerROS::timerCallback(const ros::TimerEvent &e)
     grid_map::GridMapRosConverter::fromMessage(*in_gridmap_ptr_, grid_map);
     std::vector<autoware_msgs::Waypoint> modified_reference_path;
     std::vector<autoware_msgs::Waypoint> debug_modified_smoothed_reference_path;
+    std::vector<autoware_msgs::Waypoint> debug_bspline_path;
     sensor_msgs::PointCloud2 debug_clearance_map_pointcloud;
     modified_reference_path_generator_ptr_->generateModifiedReferencePath(
       grid_map,
@@ -338,6 +339,7 @@ void FrenetPlannerROS::timerCallback(const ros::TimerEvent &e)
       *map2lidar_tf_,
       modified_reference_path,
       debug_modified_smoothed_reference_path,
+      debug_bspline_path,
       debug_clearance_map_pointcloud);
     debug_clearance_map_pointcloud.header = in_gridmap_ptr_->info.header;
     gridmap_pointcloud_pub_.publish(debug_clearance_map_pointcloud);
@@ -421,7 +423,7 @@ void FrenetPlannerROS::timerCallback(const ros::TimerEvent &e)
     points_marker_array.markers.push_back(debug_modified_reference_points);
     unique_id++;
     
-     // visualize debug modified reference point
+     // visualize debug modified smoothed reference point
     visualization_msgs::Marker debug_modified_smoothed_reference_points;
     debug_modified_smoothed_reference_points.lifetime = ros::Duration(0.2);
     debug_modified_smoothed_reference_points.header = in_pose_ptr_->header;
@@ -432,12 +434,31 @@ void FrenetPlannerROS::timerCallback(const ros::TimerEvent &e)
     debug_modified_smoothed_reference_points.type = visualization_msgs::Marker::SPHERE_LIST;
     debug_modified_smoothed_reference_points.scale.x = 0.9;
     debug_modified_smoothed_reference_points.color.r = 1.0f;
-    debug_modified_smoothed_reference_points.color.a = 1;
+    debug_modified_smoothed_reference_points.color.a = 0.6;
     for(const auto& waypoint: debug_modified_smoothed_reference_path)
     {
       debug_modified_smoothed_reference_points.points.push_back(waypoint.pose.pose.position);
     }
     points_marker_array.markers.push_back(debug_modified_smoothed_reference_points);
+    unique_id++;
+    
+     // visualize debug bspline
+    visualization_msgs::Marker debug_bspline_path_marker;
+    debug_bspline_path_marker.lifetime = ros::Duration(0.2);
+    debug_bspline_path_marker.header = in_pose_ptr_->header;
+    debug_bspline_path_marker.ns = std::string("debug_bspline_path_marker");
+    debug_bspline_path_marker.action = visualization_msgs::Marker::MODIFY;
+    debug_bspline_path_marker.pose.orientation.w = 1.0;
+    debug_bspline_path_marker.id = unique_id;
+    debug_bspline_path_marker.type = visualization_msgs::Marker::SPHERE_LIST;
+    debug_bspline_path_marker.scale.x = 0.9;
+    debug_bspline_path_marker.color.r = 1.0f;
+    debug_bspline_path_marker.color.a = 1;
+    for(const auto& waypoint: debug_bspline_path)
+    {
+      debug_bspline_path_marker.points.push_back(waypoint.pose.pose.position);
+    }
+    points_marker_array.markers.push_back(debug_bspline_path_marker);
     unique_id++;
     
     //text modified reference path curvature

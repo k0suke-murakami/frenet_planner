@@ -205,18 +205,18 @@ double ModifiedReferencePathGenerator::calculateCurvatureFromThreePoints(
   {
     curvature = 1/r;
   }
-  if(1)
-  {
-    double a = (path_point1 - path_point2).norm();
-    double b = (path_point1 - path_point3).norm();
-    double c = (path_point2 - path_point3).norm();
-    double s = (a + b + c)/2;
-    double k = std::sqrt(s*(s-a)*(s-b)*(s-c));
-    double kpi = (4*k)/(a*b*c);
-    std::cerr << "curvature " << curvature << std::endl;
-    std::cerr << "paper " << kpi << std::endl;
-    curvature = kpi;
-  }
+  // if(1)
+  // {
+  //   double a = (path_point1 - path_point2).norm();
+  //   double b = (path_point1 - path_point3).norm();
+  //   double c = (path_point2 - path_point3).norm();
+  //   double s = (a + b + c)/2;
+  //   double k = std::sqrt(s*(s-a)*(s-b)*(s-c));
+  //   double kpi = (4*k)/(a*b*c);
+  //   // std::cerr << "curvature " << curvature << std::endl;
+  //   // std::cerr << "paper " << kpi << std::endl;
+  //   curvature = kpi;
+  // }
   return curvature;
 }
 
@@ -348,7 +348,7 @@ std::vector<double>  ModifiedReferencePathGenerator::generateOpenUniformKnotVect
   std::vector<double> knot_vector;
   for(size_t i = 0; i < number_of_knot; i++)
   {
-    if(i < (degree_of_b_spline+1))
+    if(i < degree_of_b_spline)
     {
       knot_vector.push_back(0.0);
     }
@@ -359,7 +359,8 @@ std::vector<double>  ModifiedReferencePathGenerator::generateOpenUniformKnotVect
     }
     else
     {
-      double knot = static_cast<double>(i) - static_cast<double>(degree_of_b_spline) - 1;
+      double knot = static_cast<double>(i) - static_cast<double>(degree_of_b_spline);
+      std::cerr << "aaa " << knot << std::endl;
       knot_vector.push_back(knot);
     }
   }
@@ -372,6 +373,56 @@ std::vector<double>  ModifiedReferencePathGenerator::generateOpenUniformKnotVect
 }
 
 
+double ModifiedReferencePathGenerator::calaculateBasisFunction(
+     const std::vector<double>& knot_vector,
+     const size_t control_point_index,
+     const size_t basis_function_index,
+     const double function_value)
+{
+  double value = 0;
+  if(basis_function_index == 0)
+  {
+    if(function_value > knot_vector[control_point_index] &&
+       function_value <= knot_vector[control_point_index+1])
+    {
+      value = 1.0;
+    }
+    else
+    {
+      value = 0.0;
+    }
+  }
+  else
+  {
+    double w1 = 0;
+    double w2 = 0;
+    if((knot_vector[control_point_index+basis_function_index+1] - 
+        (knot_vector[control_point_index + 1])) != 0)
+    {
+      w1 = calaculateBasisFunction(knot_vector, 
+                                  control_point_index+1, 
+                                  basis_function_index - 1, 
+                                  function_value)*
+           (knot_vector[control_point_index+basis_function_index+1] - function_value)/
+           (knot_vector[control_point_index+basis_function_index+1] - 
+            knot_vector[control_point_index+1]); 
+    }
+    if((knot_vector[control_point_index+basis_function_index] - 
+       knot_vector[control_point_index]) != 0)
+    {
+      w2 = calaculateBasisFunction(knot_vector, 
+                                  control_point_index, 
+                                  basis_function_index - 1, 
+                                  function_value)*
+           (function_value - knot_vector[control_point_index])/
+           (knot_vector[control_point_index+basis_function_index] -
+            knot_vector[control_point_index]); 
+    }
+    value = w1 + w2;
+  }
+  return value;
+}
+
 void ModifiedReferencePathGenerator::generateModifiedReferencePath(
     grid_map::GridMap& clearance_map, 
     const geometry_msgs::Point& start_point, 
@@ -380,6 +431,7 @@ void ModifiedReferencePathGenerator::generateModifiedReferencePath(
     const geometry_msgs::TransformStamped& map2lidar_tf,
     std::vector<autoware_msgs::Waypoint>& modified_reference_path,
     std::vector<autoware_msgs::Waypoint>& debug_modified_smoothed_reference_path,
+    std::vector<autoware_msgs::Waypoint>& debug_bspline_path,
     sensor_msgs::PointCloud2& debug_pointcloud_clearance_map)
 {
   std::string layer_name = clearance_map.getLayers().back();
@@ -439,6 +491,7 @@ void ModifiedReferencePathGenerator::generateModifiedReferencePath(
   goal_p(0) = goal_point_in_lidar_tf.x; 
   goal_p(1) = goal_point_in_lidar_tf.y; 
   
+  std::cerr << "initial start p " << start_p << std::endl;
   std::vector<Node> s_open;
   Node* a = new Node();
   Node initial_node;
@@ -535,8 +588,9 @@ void ModifiedReferencePathGenerator::generateModifiedReferencePath(
   }
   start_path_point.curvature = 0;
   path_points.push_back(start_path_point);
+  std::cerr << "start p " << start_path_point.position << std::endl;
   
-  
+  //backtrack
   Node current_node = s_closed.back();
   while(current_node.parent_node != nullptr)
   {
@@ -555,10 +609,19 @@ void ModifiedReferencePathGenerator::generateModifiedReferencePath(
     path_point.position = current_node.p;
     path_point.clearance = current_node.r;
     path_point.curvature = 0;
-    path_points.push_back(path_point);
+    // path_points.push_back(path_point);
+    path_points.insert(path_points.begin() + 1, path_point);
     
     current_node = *current_node.parent_node;
     
+  }
+  
+  for(const auto& point: path_points)
+  {
+    std::cerr << "ssss " << point.position(0)<< " "<<point.position(1) << std::endl;
+    double rs = clearance_map.atPosition(clearance_map.getLayers().back(),
+                                              point.position)*0.1;
+      std::cerr << "path points2 r " << rs << std::endl;
   }
   
   autoware_msgs::Waypoint goal_waypoint;
@@ -586,6 +649,8 @@ void ModifiedReferencePathGenerator::generateModifiedReferencePath(
   goal_path_point.curvature = 0;
   path_points.push_back(goal_path_point);
   
+  
+  //smoothing
   calculateCurvatureForPathPoints(path_points);
   
   std::vector<PathPoint> refined_path = path_points;
@@ -636,13 +701,12 @@ void ModifiedReferencePathGenerator::generateModifiedReferencePath(
       new_refined_path.push_back(new_path_point);
     }
     new_refined_path.push_back(refined_path.back());
-    std::cerr << "for debug num size of path points " << refined_path.size()<< " "<< new_refined_path.size() << std::endl;
     new_j = calculateSmoothness(new_refined_path);
     
     double delta_j = std::abs(new_j - prev_j)/new_j;
-    std::cerr << "prev j " << prev_j << std::endl;
-    std::cerr << "new j " << new_j << std::endl;
-    std::cerr << "delta j" << delta_j << std::endl;
+    // std::cerr << "prev j " << prev_j << std::endl;
+    // std::cerr << "new j " << new_j << std::endl;
+    // std::cerr << "delta j" << delta_j << std::endl;
     if(new_j < prev_j)
     {
       refined_path = new_refined_path;
@@ -656,6 +720,7 @@ void ModifiedReferencePathGenerator::generateModifiedReferencePath(
   
   for(const auto& point: refined_path)
   {
+    // std::cerr << "poitn " << point.position(0) << std::endl;
     geometry_msgs::Pose pose_in_lidar_tf;
     
     pose_in_lidar_tf.position.x = point.position(0);
@@ -670,14 +735,41 @@ void ModifiedReferencePathGenerator::generateModifiedReferencePath(
     debug_modified_smoothed_reference_path.push_back(waypoint);   
   }
   
-  std::cerr << "aaaa" << std::endl;
-  int number_of_control_points = refined_path.size();
-  int degree_of_b_spline = 3;
-  int number_of_knot = number_of_control_points + degree_of_b_spline + 1;
-  std::vector<double> knot_vector =  
-     generateOpenUniformKnotVector(number_of_knot, degree_of_b_spline);
-  for(const auto& knot: knot_vector)
-  {
-    std::cerr << "sssss " << knot << std::endl;
-  }
+  
+  // //bspline
+  // int number_of_control_points = refined_path.size();
+  // int degree_of_b_spline = 3;
+  // int number_of_knot = number_of_control_points + degree_of_b_spline + 1;
+  // std::vector<double> knot_vector =  
+  //    generateOpenUniformKnotVector(number_of_knot, degree_of_b_spline);
+  // int number_of_sampling_points = 100;
+  // double delta_function_value = 1/static_cast<double>(number_of_sampling_points);
+  // for(double i = 0; i < 1; i += delta_function_value)
+  // {
+  //   double sum_x = 0;
+  //   double sum_y = 0;
+  //   for (size_t conrtol_point_index = 0; 
+  //        conrtol_point_index < refined_path.size();
+  //        conrtol_point_index++)
+  //   {
+  //     double calculated_value = calaculateBasisFunction(knot_vector,
+  //                                                 conrtol_point_index,
+  //                                                 degree_of_b_spline,
+  //                                                 i);
+  //     sum_x += refined_path[conrtol_point_index].position(0)*calculated_value;
+  //     sum_y += refined_path[conrtol_point_index].position(1)*calculated_value;
+  //   }
+    
+  //   geometry_msgs::Pose pose_in_lidar_tf;
+  //   pose_in_lidar_tf.position.x = sum_x;
+  //   pose_in_lidar_tf.position.y = sum_y;
+  //   pose_in_lidar_tf.position.z = start_point_in_lidar_tf.z;
+  //   pose_in_lidar_tf.orientation.w = 1.0;
+  //   geometry_msgs::Pose pose_in_map_tf;
+  //   tf2::doTransform(pose_in_lidar_tf, pose_in_map_tf, lidar2map_tf);
+  //   autoware_msgs::Waypoint waypoint;
+  //   waypoint.pose.pose = pose_in_map_tf;
+  //   debug_bspline_path.push_back(waypoint);
+    
+  // }
 }
