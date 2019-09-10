@@ -312,6 +312,7 @@ Eigen::Vector2d ModifiedReferencePathGenerator::generateNewPosition(
   }
   e << ex, ey;
   
+  double result_r;
   do
   {
     double k = calculateCurvatureFromThreePoints(parent_of_path_point1,
@@ -333,12 +334,13 @@ Eigen::Vector2d ModifiedReferencePathGenerator::generateNewPosition(
     }
     catch (const std::out_of_range& error) 
     {
-      return e;
       std::cerr << "e " << e << std::endl;
       std::cerr << "WARNING: could not find clearance in generateNewPostion " << std::endl;
+      return path_point2;
     }
+    result_r = clearance_map.atPosition(clearance_map.getLayers().back(),e)*0.1;
   }while(calculate2DDistace(e, path_point2) > 0.1);
-  return e;
+  return path_point2;
 }
 
 std::vector<double>  ModifiedReferencePathGenerator::generateOpenUniformKnotVector(
@@ -588,7 +590,7 @@ void ModifiedReferencePathGenerator::generateModifiedReferencePath(
   }
   start_path_point.curvature = 0;
   path_points.push_back(start_path_point);
-  std::cerr << "start p " << start_path_point.position << std::endl;
+  // std::cerr << "start p " << start_path_point.position << std::endl;
   
   //backtrack
   Node current_node = s_closed.back();
@@ -620,12 +622,12 @@ void ModifiedReferencePathGenerator::generateModifiedReferencePath(
   {
     std::cerr << "raugh node position " << point.position(0)<< " "<<point.position(1) << std::endl;
   }
-  for(const auto& point: path_points)
-  {
-    double rs = clearance_map.atPosition(clearance_map.getLayers().back(),
-                                              point.position)*0.1;
-      std::cerr << "clearance " << rs << std::endl;
-  }
+  // for(const auto& point: path_points)
+  // {
+  //   double rs = clearance_map.atPosition(clearance_map.getLayers().back(),
+  //                                             point.position)*0.1;
+  //     std::cerr << "clearance " << rs << std::endl;
+  // }
   
   autoware_msgs::Waypoint goal_waypoint;
   goal_waypoint.pose.pose.position = goal_point;
@@ -657,9 +659,17 @@ void ModifiedReferencePathGenerator::generateModifiedReferencePath(
   calculateCurvatureForPathPoints(path_points);
   
   std::vector<PathPoint> refined_path = path_points;
+  
+  for(const auto& point: refined_path)
+  {
+    double rs = clearance_map.atPosition(clearance_map.getLayers().back(),
+                                              point.position)*0.1;
+      std::cerr << "clearance " << rs << std::endl;
+  }
   double new_j, prev_j;
   do
   {
+    std::cerr << "------------" << std::endl;
     prev_j = calculateSmoothness(refined_path);
     
     if(refined_path.size() < 3)
@@ -674,6 +684,9 @@ void ModifiedReferencePathGenerator::generateModifiedReferencePath(
       const double min_turning_radius = 5;
       const double max_k = 1/min_turning_radius;
       const double resolution_of_gridmap = clearance_map.getResolution();
+      double rs = clearance_map.atPosition(clearance_map.getLayers().back(),
+                                              refined_path[i].position)*0.1;
+      std::cerr << "target clearance " << rs << std::endl;
       Eigen::Vector2d new_position = 
                generateNewPosition(refined_path[i - 2].position,
                                 refined_path[i - 1].position,
@@ -694,7 +707,7 @@ void ModifiedReferencePathGenerator::generateModifiedReferencePath(
         std::cerr << "WARNING: could not find clearance for goal point " << std::endl;
       }
       double curvature = calculateCurvatureFromThreePoints(
-                               refined_path[i - 1].position,
+                               refined_path[i-1].position,
                                refined_path[i].position,
                                refined_path[i+1].position);
       PathPoint new_path_point;
@@ -739,40 +752,40 @@ void ModifiedReferencePathGenerator::generateModifiedReferencePath(
   }
   
   
-  // //bspline
-  // int number_of_control_points = refined_path.size();
-  // int degree_of_b_spline = 3;
-  // int number_of_knot = number_of_control_points + degree_of_b_spline + 1;
-  // std::vector<double> knot_vector =  
-  //    generateOpenUniformKnotVector(number_of_knot, degree_of_b_spline);
-  // int number_of_sampling_points = 100;
-  // double delta_function_value = 1/static_cast<double>(number_of_sampling_points);
-  // for(double i = 0; i < 1; i += delta_function_value)
-  // {
-  //   double sum_x = 0;
-  //   double sum_y = 0;
-  //   for (size_t conrtol_point_index = 0; 
-  //        conrtol_point_index < refined_path.size();
-  //        conrtol_point_index++)
-  //   {
-  //     double calculated_value = calaculateBasisFunction(knot_vector,
-  //                                                 conrtol_point_index,
-  //                                                 degree_of_b_spline,
-  //                                                 i);
-  //     sum_x += refined_path[conrtol_point_index].position(0)*calculated_value;
-  //     sum_y += refined_path[conrtol_point_index].position(1)*calculated_value;
-  //   }
+  //bspline
+  int number_of_control_points = refined_path.size();
+  int degree_of_b_spline = 3;
+  int number_of_knot = number_of_control_points + degree_of_b_spline + 1;
+  std::vector<double> knot_vector =  
+     generateOpenUniformKnotVector(number_of_knot, degree_of_b_spline);
+  int number_of_sampling_points = 100;
+  double delta_function_value = 1/static_cast<double>(number_of_sampling_points);
+  for(double i = 0; i < 1; i += delta_function_value)
+  {
+    double sum_x = 0;
+    double sum_y = 0;
+    for (size_t conrtol_point_index = 0; 
+         conrtol_point_index < refined_path.size();
+         conrtol_point_index++)
+    {
+      double calculated_value = calaculateBasisFunction(knot_vector,
+                                                  conrtol_point_index,
+                                                  degree_of_b_spline,
+                                                  i);
+      sum_x += refined_path[conrtol_point_index].position(0)*calculated_value;
+      sum_y += refined_path[conrtol_point_index].position(1)*calculated_value;
+    }
     
-  //   geometry_msgs::Pose pose_in_lidar_tf;
-  //   pose_in_lidar_tf.position.x = sum_x;
-  //   pose_in_lidar_tf.position.y = sum_y;
-  //   pose_in_lidar_tf.position.z = start_point_in_lidar_tf.z;
-  //   pose_in_lidar_tf.orientation.w = 1.0;
-  //   geometry_msgs::Pose pose_in_map_tf;
-  //   tf2::doTransform(pose_in_lidar_tf, pose_in_map_tf, lidar2map_tf);
-  //   autoware_msgs::Waypoint waypoint;
-  //   waypoint.pose.pose = pose_in_map_tf;
-  //   debug_bspline_path.push_back(waypoint);
+    geometry_msgs::Pose pose_in_lidar_tf;
+    pose_in_lidar_tf.position.x = sum_x;
+    pose_in_lidar_tf.position.y = sum_y;
+    pose_in_lidar_tf.position.z = start_point_in_lidar_tf.z;
+    pose_in_lidar_tf.orientation.w = 1.0;
+    geometry_msgs::Pose pose_in_map_tf;
+    tf2::doTransform(pose_in_lidar_tf, pose_in_map_tf, lidar2map_tf);
+    autoware_msgs::Waypoint waypoint;
+    waypoint.pose.pose = pose_in_map_tf;
+    debug_bspline_path.push_back(waypoint);
     
-  // }
+  }
 }
