@@ -193,7 +193,7 @@ double ModifiedReferencePathGenerator::calculateCurvatureFromThreePoints(
   
   double curvature = 0;
   //straight check
-  if(yaw_by_cos > (M_PI- 0.01))
+  if(yaw_by_cos > (M_PI- 0.001))
   {
     curvature = 0;
   }
@@ -235,7 +235,7 @@ bool ModifiedReferencePathGenerator::calculateCurvatureForPathPoints(
   if(path_points.size() > 1)
   {
     path_points.front().curvature = path_points[1].curvature;
-    path_points.back().curvature = path_points[path_points.size()-1].curvature;
+    path_points.back().curvature = path_points[path_points.size()-2].curvature;
   }
   return true;
 }
@@ -618,10 +618,13 @@ void ModifiedReferencePathGenerator::generateModifiedReferencePath(
   
   for(const auto& point: path_points)
   {
-    std::cerr << "ssss " << point.position(0)<< " "<<point.position(1) << std::endl;
+    std::cerr << "raugh node position " << point.position(0)<< " "<<point.position(1) << std::endl;
+  }
+  for(const auto& point: path_points)
+  {
     double rs = clearance_map.atPosition(clearance_map.getLayers().back(),
                                               point.position)*0.1;
-      std::cerr << "path points2 r " << rs << std::endl;
+      std::cerr << "clearance " << rs << std::endl;
   }
   
   autoware_msgs::Waypoint goal_waypoint;
