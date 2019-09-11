@@ -390,11 +390,6 @@ void FrenetPlannerROS::timerCallback(const ros::TimerEvent &e)
         local_center_points.push_back(center_line_points_[i]);
       }
       
-      for(const auto& point: local_center_points)
-      {
-        
-        std::cerr << "sss" << point.cumulated_s << std::endl;
-      }
       
       // // TODO: somehow improve interface
       frenet_planner_ptr_->doPlan(*in_pose_ptr_, 
