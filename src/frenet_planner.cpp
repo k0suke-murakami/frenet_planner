@@ -10,6 +10,8 @@
 #include "frenet_planner.h"
 #include "vectormap_struct.h"
 
+#include <numeric>
+
 
 
 //TODO: make namespace/file for utility method
