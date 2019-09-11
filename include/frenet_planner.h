@@ -105,7 +105,8 @@ public:
     double required_time_cost_coef,
     double comfort_acceleration_cost_coef,
     double lookahead_distance_per_ms_for_reference_point,
-    double converge_distance_per_ms_for_stopline);
+    double converge_distance_per_ms_for_stopline,
+    double linear_velocity);
   ~FrenetPlanner();
   
   
@@ -141,6 +142,8 @@ private:
   double converge_distance_per_ms_for_stop_;
   double radius_from_reference_point_for_valid_trajectory_;
   double dt_for_sampling_points_;
+  
+  double linear_velocity_;
   // TODO: think better name previous_best_trajectoy?
   std::unique_ptr<Trajectory> kept_current_trajectory_;
   std::unique_ptr<Trajectory> kept_next_trajectory_;

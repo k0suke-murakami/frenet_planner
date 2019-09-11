@@ -69,6 +69,7 @@ FrenetPlannerROS::FrenetPlannerROS()
   double comfort_acceleration_cost_coef;
   double lookahead_distance_per_kmh_for_reference_point;
   double converge_distance_per_kmh_for_stop;
+  double linear_velocity_kmh;
   
   private_nh_.param<double>("initial_velocity_kmh", initial_velocity_kmh, 2.1);
   private_nh_.param<double>("velcity_kmh_before_obstalcle", velcity_kmh_before_obstalcle, 1.0);
@@ -83,11 +84,13 @@ FrenetPlannerROS::FrenetPlannerROS()
   private_nh_.param<double>("comfort_acceleration_cost_coef", comfort_acceleration_cost_coef, 0.0);
   private_nh_.param<double>("lookahead_distance_per_kmh_for_reference_point", lookahead_distance_per_kmh_for_reference_point, 2.0);
   private_nh_.param<double>("converge_distance_per_kmh_for_stop", converge_distance_per_kmh_for_stop, 2.36);
+  private_nh_.param<double>("linear_velocity_kmh", linear_velocity_kmh, 5.0);
   const double kmh2ms = 0.2778;
   const double initial_velocity_ms = initial_velocity_kmh * kmh2ms;
   const double velocity_ms_before_obstacle = velcity_kmh_before_obstalcle * kmh2ms;
   double lookahead_distance_per_ms_for_reference_point = lookahead_distance_per_kmh_for_reference_point/kmh2ms;
   double converge_distance_per_ms_for_stop = converge_distance_per_kmh_for_stop/kmh2ms;
+  double linear_velocity_ms = linear_velocity_kmh*kmh2ms;
   frenet_planner_ptr_.reset(
     new FrenetPlanner(
         initial_velocity_ms,
@@ -102,7 +105,8 @@ FrenetPlannerROS::FrenetPlannerROS()
         required_time_cost_coef,
         comfort_acceleration_cost_coef,
         lookahead_distance_per_ms_for_reference_point,
-        converge_distance_per_ms_for_stop));
+        converge_distance_per_ms_for_stop,
+        linear_velocity_ms));
   // TODO: assume that vectormap is already published when constructing FrenetPlannerROS
   if(!use_global_waypoints_as_center_line_)
   {
@@ -132,8 +136,6 @@ FrenetPlannerROS::FrenetPlannerROS()
   // double timer_callback_dt = 1.0;
   // double timer_callback_dt = 0.5;
   timer_ = nh_.createTimer(ros::Duration(timer_callback_delta_second), &FrenetPlannerROS::timerCallback, this);
-  
-
 }
 
 FrenetPlannerROS::~FrenetPlannerROS()
@@ -246,45 +248,6 @@ void FrenetPlannerROS::timerCallback(const ros::TimerEvent &e)
      in_waypoints_ptr_ && 
      in_gridmap_ptr_) 
   { 
-    // //TODO: refactor 
-    // std::vector<Point> local_center_points;
-    // if(use_global_waypoints_as_center_line_)
-    // {
-    //   if(!has_calculated_center_line_from_global_waypoints_)
-    //   {
-    //     //run calculation oncen
-    //     std::vector<Point> center_line_points;
-    //     center_line_points
-    //     = calculate_center_line_ptr_->calculateCenterLineFromGlobalWaypoints(
-    //       in_waypoints_ptr_->waypoints);
-    //     global_center_points_ptr_.reset(new std::vector<Point>(center_line_points));
-    //     has_calculated_center_line_from_global_waypoints_ = true;
-    //   }
-    //   double min_dist = 99999;
-    //   size_t closest_point_index = 0;
-    //   for (size_t i = 0; i < global_center_points_ptr_->size(); i++)
-    //   {
-    //     double dx = global_center_points_ptr_->at(i).tx - in_pose_ptr_->pose.position.x;
-    //     double dy = global_center_points_ptr_->at(i).ty - in_pose_ptr_->pose.position.y;
-    //     double distance = std::sqrt(std::pow(dx, 2)+std::pow(dy,2));
-    //     if(distance < min_dist)
-    //     {
-    //       min_dist = distance;
-    //       closest_point_index = i;
-    //     }
-    //   }
-    //   //TODO: think better way
-    //   for(size_t i = closest_point_index; i< global_center_points_ptr_->size(); i++)
-    //   {
-    //     local_center_points.push_back(global_center_points_ptr_->at(i));
-    //   }
-    // }
-    // else
-    // {
-    //   Point nearest_lane_point = getNearestPoint(*in_pose_ptr_);
-    //   local_center_points = nearest_lane_point.points;
-    // }
-    
     // 1. 現在日時を取得
     std::chrono::high_resolution_clock::time_point begin = std::chrono::high_resolution_clock::now();
     
@@ -367,9 +330,9 @@ void FrenetPlannerROS::timerCallback(const ros::TimerEvent &e)
       }
       
       // std::vector<Point> center_line_points;
-      // center_line_points_
-      // = calculate_center_line_ptr_->calculateCenterLineFromGlobalWaypoints(
-      //   modified_reference_path_);
+      center_line_points_
+      = calculate_center_line_ptr_->calculateCenterLineFromGlobalWaypoints(
+        modified_reference_path_);
     }
     debug_clearance_map_pointcloud.header = in_gridmap_ptr_->info.header;
     gridmap_pointcloud_pub_.publish(debug_clearance_map_pointcloud);
@@ -386,68 +349,74 @@ void FrenetPlannerROS::timerCallback(const ros::TimerEvent &e)
     std::vector<geometry_msgs::Point> out_target_points;
     if(!only_testing_modified_global_path_)
     {
-      // std::vector<autoware_msgs::Waypoint> local_reference_waypoints;
-      // double min_dist = 99999;
-      // size_t closest_wp_index = 0;
-      // for (size_t i = 0; i < modified_reference_path_.size(); i++)
-      // {
-      //   double dx = in_waypoints_ptr_->waypoints[i].pose.pose.position.x - in_pose_ptr_->pose.position.x;
-      //   double dy = in_waypoints_ptr_->waypoints[i].pose.pose.position.y - in_pose_ptr_->pose.position.y;
-      //   double distance = std::sqrt(std::pow(dx, 2)+std::pow(dy,2));
-      //   if(distance < min_dist)
-      //   {
-      //     min_dist = distance;
-      //     closest_wp_index = i;
-      //   }
-      // }
-      // //TODO: think better way
-      // for(size_t i = closest_wp_index; i< modified_reference_path_.size(); i++)
-      // {
-      //   local_reference_waypoints.push_back(in_waypoints_ptr_->waypoints[i]);
-      // }
+      std::vector<autoware_msgs::Waypoint> local_reference_waypoints;
+      double min_dist = 99999;
+      size_t closest_wp_index = 0;
+      for (size_t i = 0; i < modified_reference_path_.size(); i++)
+      {
+        double dx = modified_reference_path_[i].pose.pose.position.x - in_pose_ptr_->pose.position.x;
+        double dy = modified_reference_path_[i].pose.pose.position.y - in_pose_ptr_->pose.position.y;
+        double distance = std::sqrt(std::pow(dx, 2)+std::pow(dy,2));
+        if(distance < min_dist)
+        {
+          min_dist = distance;
+          closest_wp_index = i;
+        }
+      }
+      //TODO: think better way
+      for(size_t i = closest_wp_index; i< modified_reference_path_.size(); i++)
+      {
+        local_reference_waypoints.push_back(modified_reference_path_[i]);
+      }
       
-      // std::vector<Point> local_center_points;
-      // double min_dist2 = 99999;
-      // size_t closest_point_index = 0;
-      // for (size_t i = 0; i < global_center_points_ptr_->size(); i++)
-      // {
-      //   double dx = global_center_points_ptr_->at(i).tx - in_pose_ptr_->pose.position.x;
-      //   double dy = global_center_points_ptr_->at(i).ty - in_pose_ptr_->pose.position.y;
-      //   double distance = std::sqrt(std::pow(dx, 2)+std::pow(dy,2));
-      //   if(distance < min_dist)
-      //   {
-      //     min_dist2 = distance;
-      //     closest_point_index = i;
-      //   }
-      // }
-      // //TODO: think better way
-      // for(size_t i = closest_point_index; i< global_center_points_ptr_->size(); i++)
-      // {
-      //   local_center_points.push_back(global_center_points_ptr_->at(i));
-      // }
+      std::vector<Point> local_center_points;
+      double min_dist2 = 99999;
+      size_t closest_point_index = 0;
+      for (size_t i = 0; i < center_line_points_.size(); i++)
+      {
+        double dx = center_line_points_[i].tx - in_pose_ptr_->pose.position.x;
+        double dy = center_line_points_[i].ty - in_pose_ptr_->pose.position.y;
+        double distance = std::sqrt(std::pow(dx, 2)+std::pow(dy,2));
+        if(distance < min_dist)
+        {
+          min_dist2 = distance;
+          closest_point_index = i;
+        }
+      }
+      //TODO: think better way
+      for(size_t i = closest_point_index; i< center_line_points_.size(); i++)
+      {
+        local_center_points.push_back(center_line_points_[i]);
+      }
       
-      //TODO: somehow improve interface
-      // frenet_planner_ptr_->doPlan(*in_pose_ptr_, 
-      //                             *in_twist_ptr_, 
-      //                             local_center_points, 
-      //                             local_reference_waypoints,
-      //                             in_objects_ptr_,
-      //                             out_trajectory,
-      //                             out_debug_trajectories,
-      //                             out_target_points);
-    }
-    //3. 現在日時を再度取得
-    std::chrono::high_resolution_clock::time_point path_end = std::chrono::high_resolution_clock::now();
+      // // TODO: somehow improve interface
+      frenet_planner_ptr_->doPlan(*in_pose_ptr_, 
+                                  *in_twist_ptr_, 
+                                  local_center_points, 
+                                  local_reference_waypoints,
+                                  in_objects_ptr_,
+                                  out_trajectory,
+                                  out_debug_trajectories,
+                                  out_target_points);
+      for(auto& trajectory: out_trajectory.waypoints)
+      {
+        std::cerr << "trajector twist " << trajectory.twist.twist.linear.x << std::endl;
+        // trajectory.twist.twist.linear.x = 1.38;
+      }
+      //3. 現在日時を再度取得
+      std::chrono::high_resolution_clock::time_point path_end = std::chrono::high_resolution_clock::now();
 
-    // 経過時間を取得
-    std::chrono::nanoseconds elapsed_time2 = std::chrono::duration_cast<std::chrono::nanoseconds>(path_end - distance_end);
-    std::cout << "path generation "<<elapsed_time2.count()/(1000.0*1000.0)<< " milli sec" << std::endl;
-    // std::cerr << "output num wps" << out_trajectory.waypoints.size() << std::endl;
-    std::cerr << "------------"  << std::endl;
-    
-    autoware_msgs::Lane dummy_lane = *in_waypoints_ptr_;
-    // dummy_lane.waypoints = local_reference_waypoints;
-    optimized_waypoints_pub_.publish(dummy_lane);
+      // 経過時間を取得
+      std::chrono::nanoseconds elapsed_time2 = std::chrono::duration_cast<std::chrono::nanoseconds>(path_end - distance_end);
+      std::cout << "path generation "<<elapsed_time2.count()/(1000.0*1000.0)<< " milli sec" << std::endl;
+      // std::cerr << "output num wps" << out_trajectory.waypoints.size() << std::endl;
+      std::cerr << "------------"  << std::endl;
+      
+      autoware_msgs::Lane dummy_lane = *in_waypoints_ptr_;
+      // dummy_lane.waypoints = local_reference_waypoints;
+      dummy_lane.waypoints = out_trajectory.waypoints;
+      optimized_waypoints_pub_.publish(dummy_lane);
+    }
     // optimized_waypoints_pub_.publish(out_trajectory);
     
     

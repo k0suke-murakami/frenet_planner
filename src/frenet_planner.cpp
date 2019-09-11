@@ -62,7 +62,8 @@ FrenetPlanner::FrenetPlanner(
   double required_time_cost_coef,
   double comfort_acceleration_cost_coef,
   double lookahead_distance_per_ms_for_reference_point,
-  double converge_distance_per_ms_for_stop):
+  double converge_distance_per_ms_for_stop,
+  double linear_velocity):
 initial_velocity_ms_(initial_velocity_ms),
 velcity_ms_before_obstalcle_(velocity_ms_before_obstalcle),
 distance_before_obstalcle_(distance_before_obstalcle),
@@ -79,7 +80,8 @@ minimum_lookahead_distance_for_reference_point_(20.0),
 lookahead_distance_for_reference_point_(minimum_lookahead_distance_for_reference_point_),
 converge_distance_per_ms_for_stop_(converge_distance_per_ms_for_stop),
 radius_from_reference_point_for_valid_trajectory_(10.0),
-dt_for_sampling_points_(0.5)
+dt_for_sampling_points_(0.5),
+linear_velocity_(linear_velocity)
 {
 }
 
@@ -129,11 +131,11 @@ bool FrenetPlanner::generateEntirePath(
   FrenetPoint origin_point;
   origin_point.d_state(0) = frenet_d_position;
   origin_point.s_state(0) = frenet_s_position;
-  double delta_s = 5;
+  double delta_s = 10;
   //TODO: better naming
   geometry_msgs::Pose origin_pose = current_pose.pose;
   for(double current_target_path_length = delta_s; 
-             current_target_path_length < 30;
+             current_target_path_length < 13;
              current_target_path_length += delta_s)
   {
     FrenetPoint target_point;
@@ -266,7 +268,7 @@ bool FrenetPlanner::generateTrajectory(
                           origin_d;
     FrenetPoint calculated_frenet_point;
     calculated_frenet_point.s_state(0) = calculated_s;
-    calculated_frenet_point.s_state(1) = 1.38;
+    calculated_frenet_point.s_state(1) = linear_velocity_;
     calculated_frenet_point.s_state(2) = 0;
     calculated_frenet_point.s_state(3) = 0;
     calculated_frenet_point.d_state(0) = calculated_d;
