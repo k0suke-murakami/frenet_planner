@@ -49,7 +49,9 @@ FrenetPlannerROS::FrenetPlannerROS()
   : nh_(), 
   private_nh_("~"),
   use_global_waypoints_as_center_line_(true),
-  has_calculated_center_line_from_global_waypoints_(false)
+  has_calculated_center_line_from_global_waypoints_(false),
+  got_modified_reference_path_(false),
+  only_testing_modified_global_path_(false)
 {
   double timer_callback_delta_second;
   private_nh_.param<double>("timer_callback_delta_second", timer_callback_delta_second, 0.1);
@@ -244,103 +246,131 @@ void FrenetPlannerROS::timerCallback(const ros::TimerEvent &e)
      in_waypoints_ptr_ && 
      in_gridmap_ptr_) 
   { 
-    //TODO: refactor 
-    std::vector<Point> local_center_points;
-    if(use_global_waypoints_as_center_line_)
+    // //TODO: refactor 
+    // std::vector<Point> local_center_points;
+    // if(use_global_waypoints_as_center_line_)
+    // {
+    //   if(!has_calculated_center_line_from_global_waypoints_)
+    //   {
+    //     //run calculation oncen
+    //     std::vector<Point> center_line_points;
+    //     center_line_points
+    //     = calculate_center_line_ptr_->calculateCenterLineFromGlobalWaypoints(
+    //       in_waypoints_ptr_->waypoints);
+    //     global_center_points_ptr_.reset(new std::vector<Point>(center_line_points));
+    //     has_calculated_center_line_from_global_waypoints_ = true;
+    //   }
+    //   double min_dist = 99999;
+    //   size_t closest_point_index = 0;
+    //   for (size_t i = 0; i < global_center_points_ptr_->size(); i++)
+    //   {
+    //     double dx = global_center_points_ptr_->at(i).tx - in_pose_ptr_->pose.position.x;
+    //     double dy = global_center_points_ptr_->at(i).ty - in_pose_ptr_->pose.position.y;
+    //     double distance = std::sqrt(std::pow(dx, 2)+std::pow(dy,2));
+    //     if(distance < min_dist)
+    //     {
+    //       min_dist = distance;
+    //       closest_point_index = i;
+    //     }
+    //   }
+    //   //TODO: think better way
+    //   for(size_t i = closest_point_index; i< global_center_points_ptr_->size(); i++)
+    //   {
+    //     local_center_points.push_back(global_center_points_ptr_->at(i));
+    //   }
+    // }
+    // else
+    // {
+    //   Point nearest_lane_point = getNearestPoint(*in_pose_ptr_);
+    //   local_center_points = nearest_lane_point.points;
+    // }
+    
+    // 1. 現在日時を取得
+    std::chrono::high_resolution_clock::time_point begin = std::chrono::high_resolution_clock::now();
+    
+    grid_map::GridMap grid_map;
+    grid_map::GridMapRosConverter::fromMessage(*in_gridmap_ptr_, grid_map);
+    // std::vector<autoware_msgs::Waypoint> modified_reference_path;
+    std::vector<autoware_msgs::Waypoint> debug_modified_smoothed_reference_path;
+    std::vector<autoware_msgs::Waypoint> debug_bspline_path;
+    sensor_msgs::PointCloud2 debug_clearance_map_pointcloud;
+    // got_modified_reference_path_ = false;
+    if(!got_modified_reference_path_)
     {
-      if(!has_calculated_center_line_from_global_waypoints_)
-      {
-        //run calculation oncen
-        std::vector<Point> center_line_points;
-        center_line_points
-        = calculate_center_line_ptr_->calculateCenterLineFromGlobalWaypoints(
-          in_waypoints_ptr_->waypoints);
-        global_center_points_ptr_.reset(new std::vector<Point>(center_line_points));
-        has_calculated_center_line_from_global_waypoints_ = true;
-      }
+      //TODO: make it better by using time-series data
+      //make local waypoints based on current_pose
+      std::vector<autoware_msgs::Waypoint> local_reference_waypoints;
       double min_dist = 99999;
-      size_t closest_point_index = 0;
-      for (size_t i = 0; i < global_center_points_ptr_->size(); i++)
+      size_t closest_wp_index = 0;
+      for (size_t i = 0; i < in_waypoints_ptr_->waypoints.size(); i++)
       {
-        double dx = global_center_points_ptr_->at(i).tx - in_pose_ptr_->pose.position.x;
-        double dy = global_center_points_ptr_->at(i).ty - in_pose_ptr_->pose.position.y;
+        double dx = in_waypoints_ptr_->waypoints[i].pose.pose.position.x - in_pose_ptr_->pose.position.x;
+        double dy = in_waypoints_ptr_->waypoints[i].pose.pose.position.y - in_pose_ptr_->pose.position.y;
         double distance = std::sqrt(std::pow(dx, 2)+std::pow(dy,2));
         if(distance < min_dist)
         {
           min_dist = distance;
-          closest_point_index = i;
+          closest_wp_index = i;
         }
       }
       //TODO: think better way
-      for(size_t i = closest_point_index; i< global_center_points_ptr_->size(); i++)
+      for(size_t i = closest_wp_index; i< in_waypoints_ptr_->waypoints.size(); i++)
       {
-        local_center_points.push_back(global_center_points_ptr_->at(i));
+        local_reference_waypoints.push_back(in_waypoints_ptr_->waypoints[i]);
       }
-    }
-    else
-    {
-      Point nearest_lane_point = getNearestPoint(*in_pose_ptr_);
-      local_center_points = nearest_lane_point.points;
-    }
-    
-    //TODO: make it better by using time-series data
-    //make local waypoints based on current_pose
-    std::vector<autoware_msgs::Waypoint> local_reference_waypoints;
-    double min_dist = 99999;
-    size_t closest_wp_index = 0;
-    for (size_t i = 0; i < in_waypoints_ptr_->waypoints.size(); i++)
-    {
-      double dx = in_waypoints_ptr_->waypoints[i].pose.pose.position.x - in_pose_ptr_->pose.position.x;
-      double dy = in_waypoints_ptr_->waypoints[i].pose.pose.position.y - in_pose_ptr_->pose.position.y;
-      double distance = std::sqrt(std::pow(dx, 2)+std::pow(dy,2));
-      if(distance < min_dist)
+      
+      
+      double min_dist_from_goal = 99999;
+      const double search_distance = 45;
+      size_t closest_goal_wp_index = 0;
+      for (size_t i = 0; i < local_reference_waypoints.size(); i++)
       {
-        min_dist = distance;
-        closest_wp_index = i;
+        double dx = local_reference_waypoints[i].pose.pose.position.x - in_pose_ptr_->pose.position.x;
+        double dy = local_reference_waypoints[i].pose.pose.position.y - in_pose_ptr_->pose.position.y;
+        double distance = std::sqrt(std::pow(dx, 2)+std::pow(dy,2));
+        if(distance < min_dist_from_goal && distance > search_distance)
+        {
+          min_dist_from_goal = distance;
+          closest_goal_wp_index = i;
+        }
       }
-    }
-    //TODO: think better way
-    for(size_t i = closest_wp_index; i< in_waypoints_ptr_->waypoints.size(); i++)
-    {
-      local_reference_waypoints.push_back(in_waypoints_ptr_->waypoints[i]);
-    }
-    
-    
-    // 1. 現在日時を取得
-    std::chrono::high_resolution_clock::time_point begin = std::chrono::high_resolution_clock::now();
-    double min_dist_from_goal = 99999;
-    const double search_distance = 25;
-    size_t closest_goal_wp_index = 0;
-    for (size_t i = 0; i < local_reference_waypoints.size(); i++)
-    {
-      double dx = local_reference_waypoints[i].pose.pose.position.x - in_pose_ptr_->pose.position.x;
-      double dy = local_reference_waypoints[i].pose.pose.position.y - in_pose_ptr_->pose.position.y;
-      double distance = std::sqrt(std::pow(dx, 2)+std::pow(dy,2));
-      if(distance < min_dist_from_goal && distance > search_distance)
+      geometry_msgs::Point goal_point = local_reference_waypoints[closest_goal_wp_index].pose.pose.position;
+      geometry_msgs::Point start_point = in_pose_ptr_->pose.position;
+      
+      
+      if(only_testing_modified_global_path_)
       {
-        min_dist_from_goal = distance;
-        closest_goal_wp_index = i;
+        modified_reference_path_.clear();
       }
+      got_modified_reference_path_ =  modified_reference_path_generator_ptr_->generateModifiedReferencePath(
+        grid_map,
+        start_point,
+        goal_point,
+        *lidar2map_tf_,
+        *map2lidar_tf_,
+        modified_reference_path_,
+        debug_modified_smoothed_reference_path,
+        debug_bspline_path,
+        debug_clearance_map_pointcloud);
+      if(!got_modified_reference_path_)
+      { 
+        std::vector<autoware_msgs::Waypoint> aaa;
+        modified_reference_path_ = aaa;
+        return;
+      }
+      
+      if(only_testing_modified_global_path_)
+      {
+        got_modified_reference_path_ = false;
+        std::cerr << "modified size " << modified_reference_path_.size() << std::endl;
+        std::cerr << "bspline size " << debug_bspline_path.size() << std::endl;
+      }
+      
+      // std::vector<Point> center_line_points;
+      // center_line_points_
+      // = calculate_center_line_ptr_->calculateCenterLineFromGlobalWaypoints(
+      //   modified_reference_path_);
     }
-    geometry_msgs::Point goal_point = local_reference_waypoints[closest_goal_wp_index].pose.pose.position;
-    geometry_msgs::Point start_point = in_pose_ptr_->pose.position;
-    
-    grid_map::GridMap grid_map;
-    grid_map::GridMapRosConverter::fromMessage(*in_gridmap_ptr_, grid_map);
-    std::vector<autoware_msgs::Waypoint> modified_reference_path;
-    std::vector<autoware_msgs::Waypoint> debug_modified_smoothed_reference_path;
-    std::vector<autoware_msgs::Waypoint> debug_bspline_path;
-    sensor_msgs::PointCloud2 debug_clearance_map_pointcloud;
-    modified_reference_path_generator_ptr_->generateModifiedReferencePath(
-      grid_map,
-      start_point,
-      goal_point,
-      *lidar2map_tf_,
-      *map2lidar_tf_,
-      modified_reference_path,
-      debug_modified_smoothed_reference_path,
-      debug_bspline_path,
-      debug_clearance_map_pointcloud);
     debug_clearance_map_pointcloud.header = in_gridmap_ptr_->info.header;
     gridmap_pointcloud_pub_.publish(debug_clearance_map_pointcloud);
      
@@ -351,18 +381,61 @@ void FrenetPlannerROS::timerCallback(const ros::TimerEvent &e)
     std::cout <<"distance transform " <<elapsed_time.count()/(1000.0*1000.0)<< " milli sec" << std::endl;
     
     
-    //TODO: somehow improve interface
     autoware_msgs::Lane out_trajectory;
     std::vector<autoware_msgs::Lane> out_debug_trajectories;
     std::vector<geometry_msgs::Point> out_target_points;
-    // frenet_planner_ptr_->doPlan(*in_pose_ptr_, 
-    //                             *in_twist_ptr_, 
-    //                             local_center_points, 
-    //                             local_reference_waypoints,
-    //                             in_objects_ptr_,
-    //                             out_trajectory,
-    //                             out_debug_trajectories,
-    //                             out_target_points);
+    if(!only_testing_modified_global_path_)
+    {
+      // std::vector<autoware_msgs::Waypoint> local_reference_waypoints;
+      // double min_dist = 99999;
+      // size_t closest_wp_index = 0;
+      // for (size_t i = 0; i < modified_reference_path_.size(); i++)
+      // {
+      //   double dx = in_waypoints_ptr_->waypoints[i].pose.pose.position.x - in_pose_ptr_->pose.position.x;
+      //   double dy = in_waypoints_ptr_->waypoints[i].pose.pose.position.y - in_pose_ptr_->pose.position.y;
+      //   double distance = std::sqrt(std::pow(dx, 2)+std::pow(dy,2));
+      //   if(distance < min_dist)
+      //   {
+      //     min_dist = distance;
+      //     closest_wp_index = i;
+      //   }
+      // }
+      // //TODO: think better way
+      // for(size_t i = closest_wp_index; i< modified_reference_path_.size(); i++)
+      // {
+      //   local_reference_waypoints.push_back(in_waypoints_ptr_->waypoints[i]);
+      // }
+      
+      // std::vector<Point> local_center_points;
+      // double min_dist2 = 99999;
+      // size_t closest_point_index = 0;
+      // for (size_t i = 0; i < global_center_points_ptr_->size(); i++)
+      // {
+      //   double dx = global_center_points_ptr_->at(i).tx - in_pose_ptr_->pose.position.x;
+      //   double dy = global_center_points_ptr_->at(i).ty - in_pose_ptr_->pose.position.y;
+      //   double distance = std::sqrt(std::pow(dx, 2)+std::pow(dy,2));
+      //   if(distance < min_dist)
+      //   {
+      //     min_dist2 = distance;
+      //     closest_point_index = i;
+      //   }
+      // }
+      // //TODO: think better way
+      // for(size_t i = closest_point_index; i< global_center_points_ptr_->size(); i++)
+      // {
+      //   local_center_points.push_back(global_center_points_ptr_->at(i));
+      // }
+      
+      //TODO: somehow improve interface
+      // frenet_planner_ptr_->doPlan(*in_pose_ptr_, 
+      //                             *in_twist_ptr_, 
+      //                             local_center_points, 
+      //                             local_reference_waypoints,
+      //                             in_objects_ptr_,
+      //                             out_trajectory,
+      //                             out_debug_trajectories,
+      //                             out_target_points);
+    }
     //3. 現在日時を再度取得
     std::chrono::high_resolution_clock::time_point path_end = std::chrono::high_resolution_clock::now();
 
@@ -373,35 +446,35 @@ void FrenetPlannerROS::timerCallback(const ros::TimerEvent &e)
     std::cerr << "------------"  << std::endl;
     
     autoware_msgs::Lane dummy_lane = *in_waypoints_ptr_;
-    dummy_lane.waypoints = local_reference_waypoints;
+    // dummy_lane.waypoints = local_reference_waypoints;
     optimized_waypoints_pub_.publish(dummy_lane);
     // optimized_waypoints_pub_.publish(out_trajectory);
     
     
     
-    //debug
+    //debug; marker array
     visualization_msgs::MarkerArray points_marker_array;
     int unique_id = 0;
     
-    // visualize debug target point
-    visualization_msgs::Marker debug_target_point;
-    debug_target_point.lifetime = ros::Duration(0.2);
-    debug_target_point.header = in_pose_ptr_->header;
-    debug_target_point.ns = std::string("debug_target_point_marker");
-    debug_target_point.action = visualization_msgs::Marker::MODIFY;
-    debug_target_point.pose.orientation.w = 1.0;
-    debug_target_point.id = unique_id;
-    debug_target_point.type = visualization_msgs::Marker::SPHERE_LIST;
-    debug_target_point.scale.x = 0.9;
-    debug_target_point.color.r = 1.0f;
-    debug_target_point.color.g = 1.0f;
-    debug_target_point.color.a = 1;
-    for(const auto& point: out_target_points)
-    {
-      debug_target_point.points.push_back(point);
-    }
-    points_marker_array.markers.push_back(debug_target_point);
-    unique_id++;
+    // // visualize debug target point
+    // visualization_msgs::Marker debug_target_point;
+    // debug_target_point.lifetime = ros::Duration(0.2);
+    // debug_target_point.header = in_pose_ptr_->header;
+    // debug_target_point.ns = std::string("debug_target_point_marker");
+    // debug_target_point.action = visualization_msgs::Marker::MODIFY;
+    // debug_target_point.pose.orientation.w = 1.0;
+    // debug_target_point.id = unique_id;
+    // debug_target_point.type = visualization_msgs::Marker::SPHERE_LIST;
+    // debug_target_point.scale.x = 0.9;
+    // debug_target_point.color.r = 1.0f;
+    // debug_target_point.color.g = 1.0f;
+    // debug_target_point.color.a = 1;
+    // for(const auto& point: out_target_points)
+    // {
+    //   debug_target_point.points.push_back(point);
+    // }
+    // points_marker_array.markers.push_back(debug_target_point);
+    // unique_id++;
     
     // visualize debug modified reference point
     visualization_msgs::Marker debug_modified_reference_points;
@@ -416,7 +489,7 @@ void FrenetPlannerROS::timerCallback(const ros::TimerEvent &e)
     debug_modified_reference_points.color.r = 1.0f;
     debug_modified_reference_points.color.g = 1.0f;
     debug_modified_reference_points.color.a = 1;
-    for(const auto& waypoint: modified_reference_path)
+    for(const auto& waypoint: modified_reference_path_)
     {
       debug_modified_reference_points.points.push_back(waypoint.pose.pose.position);
     }
@@ -504,119 +577,119 @@ void FrenetPlannerROS::timerCallback(const ros::TimerEvent &e)
       points_marker_array.markers.push_back(debuf_modified_curvature_text); 
     }
     
-    // visualize debug goal point
-    visualization_msgs::Marker debug_goal_point;
-    debug_goal_point.lifetime = ros::Duration(0.2);
-    debug_goal_point.header = in_pose_ptr_->header;
-    debug_goal_point.ns = std::string("debug_goal_point_marker");
-    debug_goal_point.action = visualization_msgs::Marker::MODIFY;
-    debug_goal_point.pose.orientation.w = 1.0;
-    debug_goal_point.id = unique_id;
-    debug_goal_point.type = visualization_msgs::Marker::SPHERE_LIST;
-    debug_goal_point.scale.x = 0.9;
-    debug_goal_point.color.r = 0.0f;
-    debug_goal_point.color.g = 1.0f;
-    debug_goal_point.color.a = 1;
-    debug_goal_point.points.push_back(goal_point);
-    points_marker_array.markers.push_back(debug_goal_point);
-    unique_id++;
+    // // visualize debug goal point
+    // visualization_msgs::Marker debug_goal_point;
+    // debug_goal_point.lifetime = ros::Duration(0.2);
+    // debug_goal_point.header = in_pose_ptr_->header;
+    // debug_goal_point.ns = std::string("debug_goal_point_marker");
+    // debug_goal_point.action = visualization_msgs::Marker::MODIFY;
+    // debug_goal_point.pose.orientation.w = 1.0;
+    // debug_goal_point.id = unique_id;
+    // debug_goal_point.type = visualization_msgs::Marker::SPHERE_LIST;
+    // debug_goal_point.scale.x = 0.9;
+    // debug_goal_point.color.r = 0.0f;
+    // debug_goal_point.color.g = 1.0f;
+    // debug_goal_point.color.a = 1;
+    // debug_goal_point.points.push_back(goal_point);
+    // points_marker_array.markers.push_back(debug_goal_point);
+    // unique_id++;
     
-    //text
-    size_t debug_reference_point_id = 0;
-    for (const auto& point: out_target_points)
-    {
-      visualization_msgs::Marker debug_reference_point_text;
-      debug_reference_point_text.lifetime = ros::Duration(0.2);
-      debug_reference_point_text.header = in_pose_ptr_->header;
-      debug_reference_point_text.ns = std::string("debug_reference_point_text");
-      debug_reference_point_text.action = visualization_msgs::Marker::ADD;
-      debug_reference_point_text.id = unique_id;
-      debug_reference_point_text.type = visualization_msgs::Marker::TEXT_VIEW_FACING;
-      debug_reference_point_text.scale.x = 1;
-      debug_reference_point_text.scale.y = 0.1;
-      debug_reference_point_text.scale.z = 0.4;
+    // //text
+    // size_t debug_reference_point_id = 0;
+    // for (const auto& point: out_target_points)
+    // {
+    //   visualization_msgs::Marker debug_reference_point_text;
+    //   debug_reference_point_text.lifetime = ros::Duration(0.2);
+    //   debug_reference_point_text.header = in_pose_ptr_->header;
+    //   debug_reference_point_text.ns = std::string("debug_reference_point_text");
+    //   debug_reference_point_text.action = visualization_msgs::Marker::ADD;
+    //   debug_reference_point_text.id = unique_id;
+    //   debug_reference_point_text.type = visualization_msgs::Marker::TEXT_VIEW_FACING;
+    //   debug_reference_point_text.scale.x = 1;
+    //   debug_reference_point_text.scale.y = 0.1;
+    //   debug_reference_point_text.scale.z = 0.4;
 
-      // texts are green
-      debug_reference_point_text.color.g = 1.0f;
-      debug_reference_point_text.color.a = 1.0;
+    //   // texts are green
+    //   debug_reference_point_text.color.g = 1.0f;
+    //   debug_reference_point_text.color.a = 1.0;
       
       
-      geometry_msgs::Point relative_p;
-      relative_p.y = 0.8;
-      geometry_msgs::Pose pose;
-      pose.position = point;
-      pose.orientation.x = 0;
-      pose.orientation.y = 0;
-      pose.orientation.z = 0;
-      pose.orientation.w = 1.0;
-      tf::Transform inverse;
-      tf::poseMsgToTF(pose, inverse);
+    //   geometry_msgs::Point relative_p;
+    //   relative_p.y = 0.8;
+    //   geometry_msgs::Pose pose;
+    //   pose.position = point;
+    //   pose.orientation.x = 0;
+    //   pose.orientation.y = 0;
+    //   pose.orientation.z = 0;
+    //   pose.orientation.w = 1.0;
+    //   tf::Transform inverse;
+    //   tf::poseMsgToTF(pose, inverse);
 
-      tf::Point p;
-      pointMsgToTF(relative_p, p);
-      tf::Point tf_p = inverse * p;
-      geometry_msgs::Point tf_point_msg;
-      pointTFToMsg(tf_p, tf_point_msg);
-      debug_reference_point_text.pose.position = tf_point_msg;
-      debug_reference_point_text.text = std::to_string(debug_reference_point_id);
-      debug_reference_point_id ++;
+    //   tf::Point p;
+    //   pointMsgToTF(relative_p, p);
+    //   tf::Point tf_p = inverse * p;
+    //   geometry_msgs::Point tf_point_msg;
+    //   pointTFToMsg(tf_p, tf_point_msg);
+    //   debug_reference_point_text.pose.position = tf_point_msg;
+    //   debug_reference_point_text.text = std::to_string(debug_reference_point_id);
+    //   debug_reference_point_id ++;
       
-      unique_id++;
+    //   unique_id++;
       
-      points_marker_array.markers.push_back(debug_reference_point_text); 
-    }
+    //   points_marker_array.markers.push_back(debug_reference_point_text); 
+    // }
     
-    //center point text
-    size_t debug_global_point_id = 0;
-    for (const auto& point: local_center_points)
-    {
-      visualization_msgs::Marker debug_center_point_text;
-      debug_center_point_text.lifetime = ros::Duration(0.2);
-      debug_center_point_text.header = in_pose_ptr_->header;
-      debug_center_point_text.ns = std::string("debug_center_point_text");
-      debug_center_point_text.action = visualization_msgs::Marker::ADD;
-      debug_center_point_text.id = unique_id;
-      debug_center_point_text.type = visualization_msgs::Marker::TEXT_VIEW_FACING;
-      debug_center_point_text.scale.x = 1;
-      debug_center_point_text.scale.y = 0.1;
-      debug_center_point_text.scale.z = 0.4;
+    // //center point text
+    // size_t debug_global_point_id = 0;
+    // for (const auto& point: local_center_points)
+    // {
+    //   visualization_msgs::Marker debug_center_point_text;
+    //   debug_center_point_text.lifetime = ros::Duration(0.2);
+    //   debug_center_point_text.header = in_pose_ptr_->header;
+    //   debug_center_point_text.ns = std::string("debug_center_point_text");
+    //   debug_center_point_text.action = visualization_msgs::Marker::ADD;
+    //   debug_center_point_text.id = unique_id;
+    //   debug_center_point_text.type = visualization_msgs::Marker::TEXT_VIEW_FACING;
+    //   debug_center_point_text.scale.x = 1;
+    //   debug_center_point_text.scale.y = 0.1;
+    //   debug_center_point_text.scale.z = 0.4;
 
-      // texts are green
-      debug_center_point_text.color.g = 1.0f;
-      debug_center_point_text.color.a = 1.0;
+    //   // texts are green
+    //   debug_center_point_text.color.g = 1.0f;
+    //   debug_center_point_text.color.a = 1.0;
       
       
-      geometry_msgs::Point relative_p;
-      relative_p.y = 0.8;
-      geometry_msgs::Pose pose;
-      pose.position.x = point.tx ;
-      pose.position.y = point.ty ;
-      pose.position.z = in_waypoints_ptr_->waypoints.front().pose.pose.position.z;
-      pose.orientation.x = 0;
-      pose.orientation.y = 0;
-      pose.orientation.z = 0;
-      pose.orientation.w = 1.0;
-      tf::Transform inverse;
-      tf::poseMsgToTF(pose, inverse);
+    //   geometry_msgs::Point relative_p;
+    //   relative_p.y = 0.8;
+    //   geometry_msgs::Pose pose;
+    //   pose.position.x = point.tx ;
+    //   pose.position.y = point.ty ;
+    //   pose.position.z = in_waypoints_ptr_->waypoints.front().pose.pose.position.z;
+    //   pose.orientation.x = 0;
+    //   pose.orientation.y = 0;
+    //   pose.orientation.z = 0;
+    //   pose.orientation.w = 1.0;
+    //   tf::Transform inverse;
+    //   tf::poseMsgToTF(pose, inverse);
 
-      tf::Point p;
-      pointMsgToTF(relative_p, p);
-      tf::Point tf_p = inverse * p;
-      geometry_msgs::Point tf_point_msg;
-      pointTFToMsg(tf_p, tf_point_msg);
-      debug_center_point_text.pose.position = tf_point_msg;
-      debug_center_point_text.text = std::to_string(point.cumulated_s).substr(0, 5);
-      // debug_center_point_text.text += std::string(" ");
-      // debug_center_point_text.text += std::to_string(point.tx);
-      // debug_center_point_text.text += std::string(" ");
-      // debug_center_point_text.text += std::to_string(point.ty);
+    //   tf::Point p;
+    //   pointMsgToTF(relative_p, p);
+    //   tf::Point tf_p = inverse * p;
+    //   geometry_msgs::Point tf_point_msg;
+    //   pointTFToMsg(tf_p, tf_point_msg);
+    //   debug_center_point_text.pose.position = tf_point_msg;
+    //   debug_center_point_text.text = std::to_string(point.cumulated_s).substr(0, 5);
+    //   // debug_center_point_text.text += std::string(" ");
+    //   // debug_center_point_text.text += std::to_string(point.tx);
+    //   // debug_center_point_text.text += std::string(" ");
+    //   // debug_center_point_text.text += std::to_string(point.ty);
       
-      debug_global_point_id ++;
+    //   debug_global_point_id ++;
       
-      unique_id++;
+    //   unique_id++;
       
-      points_marker_array.markers.push_back(debug_center_point_text); 
-    }
+    //   points_marker_array.markers.push_back(debug_center_point_text); 
+    // }
 
     
     visualization_msgs::Marker trajectory_marker;

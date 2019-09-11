@@ -34,6 +34,7 @@ namespace autoware_msgs
 {
   ROS_DECLARE_MESSAGE(Lane); 
   ROS_DECLARE_MESSAGE(DetectedObjectArray); 
+  ROS_DECLARE_MESSAGE(Waypoint); 
 }
 
 namespace grid_map_msgs
@@ -75,6 +76,15 @@ private:
   
   bool use_global_waypoints_as_center_line_;
   bool has_calculated_center_line_from_global_waypoints_;
+  
+  //TODO: not 
+  bool got_modified_reference_path_;
+  bool only_testing_modified_global_path_;
+  
+  //TODO: not good code
+  std::vector<autoware_msgs::Waypoint> modified_reference_path_;
+  std::vector<Point> center_line_points_;
+  // std::vector<autoware_msgs::Waypoint> debug_bspline_path_;
   
   ros::Timer timer_;
   

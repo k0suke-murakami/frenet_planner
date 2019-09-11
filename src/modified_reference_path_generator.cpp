@@ -440,7 +440,7 @@ bool ModifiedReferencePathGenerator::generateModifiedReferencePath(
   grid_map::Matrix data = clearance_map.get(layer_name);
 
   // grid_length y and grid_length_x respectively
-  dope::Index2 size({ 200, 500 });
+  dope::Index2 size({ 200, 600 });
   dope::Grid<float, 2> f(size);
   dope::Grid<dope::SizeType, 2> indices(size);
   bool is_empty_cost = true;
@@ -566,10 +566,10 @@ bool ModifiedReferencePathGenerator::generateModifiedReferencePath(
   
   std::vector<PathPoint> path_points;
   
-  autoware_msgs::Waypoint start_waypoint;
-  start_waypoint.pose.pose.position = start_point;
-  start_waypoint.pose.pose.orientation.w = 1.0;
-  modified_reference_path.push_back(start_waypoint);
+  // autoware_msgs::Waypoint start_waypoint;
+  // start_waypoint.pose.pose.position = start_point;
+  // start_waypoint.pose.pose.orientation.w = 1.0;
+  // modified_reference_path.push_back(start_waypoint);
   PathPoint start_path_point;
   start_path_point.position = start_p;
   try 
@@ -601,16 +601,16 @@ bool ModifiedReferencePathGenerator::generateModifiedReferencePath(
   }
   while(current_node.parent_node != nullptr)
   {
-    geometry_msgs::Pose pose_in_lidar_tf;
-    pose_in_lidar_tf.position.x = current_node.p(0);
-    pose_in_lidar_tf.position.y = current_node.p(1);
-    pose_in_lidar_tf.position.z = start_point_in_lidar_tf.z;
-    pose_in_lidar_tf.orientation.w = 1.0;
-    geometry_msgs::Pose pose_in_map_tf;
-    tf2::doTransform(pose_in_lidar_tf, pose_in_map_tf, lidar2map_tf);
-    autoware_msgs::Waypoint waypoint;
-    waypoint.pose.pose = pose_in_map_tf;
-    modified_reference_path.push_back(waypoint);
+    // geometry_msgs::Pose pose_in_lidar_tf;
+    // pose_in_lidar_tf.position.x = current_node.p(0);
+    // pose_in_lidar_tf.position.y = current_node.p(1);
+    // pose_in_lidar_tf.position.z = start_point_in_lidar_tf.z;
+    // pose_in_lidar_tf.orientation.w = 1.0;
+    // geometry_msgs::Pose pose_in_map_tf;
+    // tf2::doTransform(pose_in_lidar_tf, pose_in_map_tf, lidar2map_tf);
+    // autoware_msgs::Waypoint waypoint;
+    // waypoint.pose.pose = pose_in_map_tf;
+    // modified_reference_path.push_back(waypoint);
     
     PathPoint path_point;
     path_point.position = current_node.p;
@@ -634,10 +634,10 @@ bool ModifiedReferencePathGenerator::generateModifiedReferencePath(
   //     std::cerr << "clearance " << rs << std::endl;
   // }
   
-  autoware_msgs::Waypoint goal_waypoint;
-  goal_waypoint.pose.pose.position = goal_point;
-  goal_waypoint.pose.pose.orientation.w = 1.0;
-  modified_reference_path.push_back(goal_waypoint);
+  // autoware_msgs::Waypoint goal_waypoint;
+  // goal_waypoint.pose.pose.position = goal_point;
+  // goal_waypoint.pose.pose.orientation.w = 1.0;
+  // modified_reference_path.push_back(goal_waypoint);
   
   PathPoint goal_path_point;
   goal_path_point.position = goal_p;
@@ -762,7 +762,7 @@ bool ModifiedReferencePathGenerator::generateModifiedReferencePath(
   int number_of_knot = number_of_control_points + degree_of_b_spline + 1;
   std::vector<double> knot_vector =  
      generateOpenUniformKnotVector(number_of_knot, degree_of_b_spline);
-  int number_of_sampling_points = 100;
+  int number_of_sampling_points = 30;
   double delta_function_value = 1/static_cast<double>(number_of_sampling_points);
   for(double i = 0; i < 1; i += delta_function_value)
   {
@@ -790,7 +790,7 @@ bool ModifiedReferencePathGenerator::generateModifiedReferencePath(
     autoware_msgs::Waypoint waypoint;
     waypoint.pose.pose = pose_in_map_tf;
     debug_bspline_path.push_back(waypoint);
-    
+    modified_reference_path.push_back(waypoint); 
   }
   return true;
 }
