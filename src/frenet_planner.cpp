@@ -131,6 +131,13 @@ bool FrenetPlanner::generateEntirePath(
   FrenetPoint origin_point;
   origin_point.d_state(0) = frenet_d_position;
   origin_point.s_state(0) = frenet_s_position;
+  Point nearest_point;
+  getNearestPoint(current_pose.pose.position,
+                    lane_points,
+                    nearest_point);
+  origin_point.d_state(0) = 0;
+  origin_point.s_state(0) = nearest_point.cumulated_s;
+  std::cerr << "origin point s " << frenet_s_position << std::endl;
   double delta_s = 10;
   //TODO: better naming
   geometry_msgs::Pose origin_pose = current_pose.pose;

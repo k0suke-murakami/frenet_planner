@@ -762,7 +762,7 @@ bool ModifiedReferencePathGenerator::generateModifiedReferencePath(
   int number_of_knot = number_of_control_points + degree_of_b_spline + 1;
   std::vector<double> knot_vector =  
      generateOpenUniformKnotVector(number_of_knot, degree_of_b_spline);
-  int number_of_sampling_points = 30;
+  int number_of_sampling_points = 60;
   double delta_function_value = 1/static_cast<double>(number_of_sampling_points);
   for(double i = 0; i < 1; i += delta_function_value)
   {
@@ -780,6 +780,8 @@ bool ModifiedReferencePathGenerator::generateModifiedReferencePath(
       sum_y += refined_path[conrtol_point_index].position(1)*calculated_value;
     }
     
+    std::cerr << "sumx " << sum_x << std::endl;
+    std::cerr << "sumy " << sum_y << std::endl;
     geometry_msgs::Pose pose_in_lidar_tf;
     pose_in_lidar_tf.position.x = sum_x;
     pose_in_lidar_tf.position.y = sum_y;

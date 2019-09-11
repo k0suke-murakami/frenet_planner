@@ -390,6 +390,12 @@ void FrenetPlannerROS::timerCallback(const ros::TimerEvent &e)
         local_center_points.push_back(center_line_points_[i]);
       }
       
+      for(const auto& point: local_center_points)
+      {
+        
+        std::cerr << "sss" << point.cumulated_s << std::endl;
+      }
+      
       // // TODO: somehow improve interface
       frenet_planner_ptr_->doPlan(*in_pose_ptr_, 
                                   *in_twist_ptr_, 
@@ -399,11 +405,14 @@ void FrenetPlannerROS::timerCallback(const ros::TimerEvent &e)
                                   out_trajectory,
                                   out_debug_trajectories,
                                   out_target_points);
-      for(auto& trajectory: out_trajectory.waypoints)
-      {
-        std::cerr << "trajector twist " << trajectory.twist.twist.linear.x << std::endl;
-        // trajectory.twist.twist.linear.x = 1.38;
-      }
+      std::cerr << "------"  << std::endl;
+      // for(auto& trajectory: out_trajectory.waypoints)
+      // {
+      //   std::cerr << "trajectory " << trajectory.pose.pose.position.x << std::endl;
+      //   std::cerr << "trajectory " << trajectory.pose.pose.position.y << std::endl;
+      //   // std::cerr << "trajector twist " << trajectory.twist.twist.linear.x << std::endl;
+      //   // trajectory.twist.twist.linear.x = 1.38;
+      // }
       //3. 現在日時を再度取得
       std::chrono::high_resolution_clock::time_point path_end = std::chrono::high_resolution_clock::now();
 
