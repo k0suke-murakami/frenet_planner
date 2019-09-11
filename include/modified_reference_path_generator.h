@@ -37,6 +37,7 @@ struct PathPoint;
 class ModifiedReferencePathGenerator
 {
 private:
+  const double min_radius_;
   bool calculateCurvatureForPathPoints(
             std::vector<PathPoint>& path_points);
   double calculateCurvatureFromThreePoints(
@@ -68,7 +69,8 @@ private:
      const double function_value);
           
 public:
-  ModifiedReferencePathGenerator(/* args */);
+  ModifiedReferencePathGenerator(
+     const double min_radius);
   ~ModifiedReferencePathGenerator();
   
   bool generateModifiedReferencePath(

@@ -59,10 +59,12 @@ bool compareF(Node lhs, Node rhs) { return lhs.f < rhs.f; }
 
 std::vector<Node> expandNode(Node& parent_node, 
                              const grid_map::GridMap& clearence_map,
-                             const Node& goal_node)
+                             const Node& goal_node,
+                             const double min_r,
+                             const double max_r)
 {
-  const double min_r = 1.6;
-  const double max_r = 10;
+  // const double min_r = 1.6;
+  // const double max_r = 10;
   
   //r min max
   double current_r;
@@ -148,7 +150,9 @@ bool nodeExistInClosedNodes(Node node, std::vector<Node> closed_nodes)
   return false;
 }
 
-ModifiedReferencePathGenerator::ModifiedReferencePathGenerator(/* args */)
+ModifiedReferencePathGenerator::ModifiedReferencePathGenerator(
+  const double min_radius):
+  min_radius_(min_radius)
 {
 }
 
@@ -499,6 +503,7 @@ bool ModifiedReferencePathGenerator::generateModifiedReferencePath(
   Node initial_node;
   double clearance_to_m = 0.1;
   const double min_r = 1.6;
+  // const double min_r = 2.0;
   const double max_r = 10;
   initial_node.p = start_p;
   double initial_r = clearance_map.atPosition(layer_name, initial_node.p) * clearance_to_m ;
@@ -552,7 +557,11 @@ bool ModifiedReferencePathGenerator::generateModifiedReferencePath(
     else
     {
       std::vector<Node> child_nodes = 
-          expandNode(lowest_f_node, clearance_map, goal_node);
+          expandNode(lowest_f_node, 
+                     clearance_map,
+                     goal_node,
+                     min_r,
+                     max_r);
       s_open.insert(s_open.end(),
                     child_nodes.begin(),
                     child_nodes.end());
@@ -780,8 +789,8 @@ bool ModifiedReferencePathGenerator::generateModifiedReferencePath(
       sum_y += refined_path[conrtol_point_index].position(1)*calculated_value;
     }
     
-    std::cerr << "sumx " << sum_x << std::endl;
-    std::cerr << "sumy " << sum_y << std::endl;
+    // std::cerr << "sumx " << sum_x << std::endl;
+    // std::cerr << "sumy " << sum_y << std::endl;
     geometry_msgs::Pose pose_in_lidar_tf;
     pose_in_lidar_tf.position.x = sum_x;
     pose_in_lidar_tf.position.y = sum_y;

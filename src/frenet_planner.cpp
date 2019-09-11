@@ -136,49 +136,113 @@ bool FrenetPlanner::generateEntirePath(
   origin_point.d_state(0) = 0;
   origin_point.s_state(0) = nearest_point.cumulated_s;
   double delta_s = 10;
+  double number_of_path_layer = 2;
   //TODO: better naming
   geometry_msgs::Pose origin_pose = current_pose.pose;
-  for(double current_target_path_length = delta_s; 
-             current_target_path_length < 21;
+  std::vector<Trajectory> trajectories;
+  FrenetPoint target_point;
+  target_point.d_state(0) = 0;
+  target_point.s_state(0) = (origin_point.s_state(0) + delta_s);
+  ReferencePoint reference_point;
+  reference_point.frenet_point = target_point;
+  reference_point.lateral_max_offset = 1.0;
+  // reference_point.lateral_sampling_resolution = 0.25;
+  reference_point.lateral_sampling_resolution = 0.25;
+  reference_point.longitudinal_max_offset = 0.0;
+  reference_point.longitudinal_sampling_resolution = 1.5;
+  
+  
+  
+  drawTrajectories(origin_pose,
+                    origin_point,
+                    reference_point,
+                    lane_points,
+                    reference_waypoints,
+                    trajectories,
+                    out_debug_trajectories);
+  for(double current_target_path_length = (delta_s*number_of_path_layer); 
+             current_target_path_length <= delta_s*number_of_path_layer;
              current_target_path_length += delta_s)
   {
-    FrenetPoint target_point;
-    target_point.d_state(0) = 0;
-    target_point.s_state(0) = (origin_point.s_state(0) + delta_s);
-    ReferencePoint reference_point;
-    reference_point.frenet_point = target_point;
-    reference_point.lateral_max_offset = 1.5;
-    reference_point.lateral_sampling_resolution = 0.25;
-    reference_point.longitudinal_max_offset = 0.0;
-    reference_point.longitudinal_sampling_resolution = 1.5;
-    
-    
-    
-    std::vector<Trajectory> trajectories;
-    drawTrajectories(origin_pose,
-                     origin_point,
-                     reference_point,
-                     lane_points,
-                     reference_waypoints,
-                     trajectories,
-                     out_debug_trajectories);
-    std::unique_ptr<ReferencePoint> kept_reference_point;
-    kept_reference_point.reset(new ReferencePoint(reference_point));  
-    std::unique_ptr<Trajectory> kept_best_trajectory;
-    selectBestTrajectory(trajectories,
-                         in_objects_ptr,
-                         reference_waypoints,
-                         kept_reference_point,
-                         kept_best_trajectory);
-    origin_point = kept_best_trajectory->frenet_trajectory_points.back();
-    origin_pose = kept_best_trajectory->trajectory_points.waypoints.back().pose.pose;
-    out_reference_points.push_back(origin_pose.position);
-    entire_path.insert
-                (entire_path.end(),
-                  kept_best_trajectory->trajectory_points.waypoints.begin(),
-                  kept_best_trajectory->trajectory_points.waypoints.end());
+    const std::vector<Trajectory> dc_trajectories = trajectories;
+    trajectories.clear();
+    for (const auto& dc_trajectory: dc_trajectories)
+    {
+      geometry_msgs::Pose origin_pose = dc_trajectory.trajectory_points.waypoints.back().pose.pose;
+      FrenetPoint origin_point = dc_trajectory.frenet_trajectory_points.back();
+      FrenetPoint target_point;
+      target_point.d_state(0) = origin_point.d_state(0);
+      target_point.s_state(0) = (origin_point.s_state(0) + delta_s);
+      ReferencePoint reference_point;
+      reference_point.frenet_point = target_point;
+      reference_point.lateral_max_offset = 2.0;
+      reference_point.lateral_sampling_resolution = 0.25;
+      reference_point.longitudinal_max_offset = 0.0;
+      reference_point.longitudinal_sampling_resolution = 1.5;
+      std::vector<Trajectory> child_trajectories;
+      drawTrajectories(origin_pose,
+                    origin_point,
+                    reference_point,
+                    lane_points,
+                    reference_waypoints,
+                    child_trajectories,
+                    out_debug_trajectories);
+                    
+      for(auto& child_trajectory: child_trajectories)
+      {
+        Trajectory new_trajectory = dc_trajectory;
+        new_trajectory.trajectory_points.waypoints.insert
+                    (new_trajectory.trajectory_points.waypoints.end(),
+                     child_trajectory.trajectory_points.waypoints.begin(),
+                     child_trajectory.trajectory_points.waypoints.end());
+        new_trajectory.calculated_trajectory_points.insert
+                    (new_trajectory.calculated_trajectory_points.end(),
+                     child_trajectory.calculated_trajectory_points.begin(),
+                     child_trajectory.calculated_trajectory_points.end());
+        new_trajectory.frenet_trajectory_points.insert
+                    (new_trajectory.frenet_trajectory_points.end(),
+                     child_trajectory.frenet_trajectory_points.begin(),
+                     child_trajectory.frenet_trajectory_points.end());
+        //TODO: conversion error from frenet to cartesion to frenet
+        // std::cerr<<"input origin  "<<origin_point.d_state(0)<<std::endl;
+        // std::cerr<<"dc "<<dc_trajectory.frenet_trajectory_points.back().d_state(0)<<std::endl;
+        // std::cerr << "sexod " << child_trajectory.frenet_trajectory_points.front().d_state(0) << std::endl;
+        trajectories.push_back(new_trajectory);
+      }
+    }
   }
-  // std::cerr << "entire path point size " << entire_path.size()<< std::endl;
+  
+  
+  ReferencePoint final_reference_point;
+  final_reference_point.frenet_point.d_state(0) = 0;
+  final_reference_point.frenet_point.s_state(0) = delta_s*number_of_path_layer + origin_point.s_state(0);
+  final_reference_point.lateral_max_offset = 2.0;
+  final_reference_point.lateral_sampling_resolution = 0.25;
+  final_reference_point.longitudinal_max_offset = 0.0;
+  final_reference_point.longitudinal_sampling_resolution = 1.5;
+  std::unique_ptr<ReferencePoint> kept_reference_point;
+  kept_reference_point.reset(new ReferencePoint(final_reference_point));  
+  std::unique_ptr<Trajectory> kept_best_trajectory;
+  selectBestTrajectory(trajectories,
+                       in_objects_ptr,
+                       reference_waypoints,
+                       kept_reference_point,
+                       kept_best_trajectory);
+  // origin_point = kept_best_trajectory->frenet_trajectory_points.back();
+  // origin_pose = kept_best_trajectory->trajectory_points.waypoints.back().pose.pose;
+  out_reference_points.push_back(origin_pose.position);
+  entire_path = kept_best_trajectory->trajectory_points.waypoints;
+  // std::cerr << "traf size " << trajectories.size() << std::endl;
+  // std::cerr << "num  wp " << entire_path.size() << std::endl;
+  // for(const auto& wp: entire_path)
+  // {
+  //   std::cerr << "wpx " << wp.pose.pose.position.x << std::endl;
+  //   std::cerr << "wpx " << wp.pose.pose.position.y << std::endl;
+  // }
+  // entire_path.insert
+  //             (entire_path.end(),
+  //               kept_best_trajectory->trajectory_points.waypoints.begin(),
+                // kept_best_trajectory->trajectory_points.waypoints.end());
 }
 
 //TODO: draw trajectories based on reference_point parameters
@@ -718,10 +782,30 @@ bool FrenetPlanner::selectBestTrajectory(
     
     //calculate terminal cost
     FrenetPoint frenet_point_at_time_horizon = trajectory.frenet_trajectory_points.back();
+    // std::cerr << "traj frenet at time horizon " << 
+    //         frenet_point_at_time_horizon.d_state(0)<< " " <<
+    //         frenet_point_at_time_horizon.s_state(0) << std::endl;
+    // std::cerr << "reference frenet at time horizon " << 
+    //         kept_reference_point->frenet_point.d_state(0)<< " " <<
+    //         kept_reference_point->frenet_point.s_state(0) << std::endl;
     double ref_last_waypoint_cost = 
     std::pow(frenet_point_at_time_horizon.d_state(0) - kept_reference_point->frenet_point.d_state(0), 2) + 
-    std::pow(frenet_point_at_time_horizon.s_state(0) - kept_reference_point->frenet_point.s_state(0), 2) +
-    std::pow(frenet_point_at_time_horizon.s_state(1) - kept_reference_point->frenet_point.s_state(1), 2);
+    std::pow(frenet_point_at_time_horizon.s_state(0) - kept_reference_point->frenet_point.s_state(0), 2);
+    // std::pow(frenet_point_at_time_horizon.s_state(1) - kept_reference_point->frenet_point.s_state(1), 2);
+    double sum_ref_waypoint_cost = 0;
+    for(const auto& waypoint: trajectory.trajectory_points.waypoints)
+    {
+      autoware_msgs::Waypoint nearest_waypoint;
+      getNearestWaypoint(waypoint.pose.pose.position,
+                        reference_waypoints,
+                        nearest_waypoint);
+      double distance = calculate2DDistace(waypoint.pose.pose.position,
+                        nearest_waypoint.pose.pose.position);
+      sum_ref_waypoint_cost+= distance;
+    }
+    // std::cerr << "cost: sum\enet_point_at_time_horizon.d_state(0) << std::endl;
+    sum_ref_waypoints_costs+= sum_ref_waypoint_cost;
+    ref_waypoints_costs.push_back(sum_ref_waypoint_cost);
     
     // double ref_last_waypoint_cost = 
     // std::pow(frenet_point_at_time_horizon.d_state(0) - kept_reference_point->frenet_point.d_state(0), 2); 
@@ -752,9 +836,16 @@ bool FrenetPlanner::selectBestTrajectory(
   for(size_t i = 0; i < ref_last_waypoints_costs.size(); i++)
   {
     double normalized_ref_last_waypoints_cost = ref_last_waypoints_costs[i]/sum_last_waypoints_costs;
-    double sum_cost = normalized_ref_last_waypoints_cost*diff_last_waypoint_cost_coef_;
+    double normalized_ref_waypoint_cost = ref_waypoints_costs[i]/sum_ref_waypoints_costs;
+    
+    
+    double sum_cost = normalized_ref_last_waypoints_cost*diff_last_waypoint_cost_coef_ +
+                      normalized_ref_waypoint_cost*diff_waypoints_cost_coef_;
     costs.push_back(sum_cost);
+    // std::cerr << "sum cost " << i << " "<< sum_cost << std::endl;
     debug_norm_ref_last_wp_costs.push_back(normalized_ref_last_waypoints_cost);
+    
+    
   }
   //arg sort 
   // https://stackoverflow.com/questions/1577475/c-sorting-and-keeping-track-of-indexes/12399290#12399290
@@ -781,6 +872,7 @@ bool FrenetPlanner::selectBestTrajectory(
     {
       has_got_best_trajectory = true;
       kept_best_trajectory.reset(new Trajectory(trajectories[index]));
+      std::cerr << "ith traj " << index << std::endl;
       break;
     }
   } 

@@ -70,6 +70,8 @@ FrenetPlannerROS::FrenetPlannerROS()
   double converge_distance_per_kmh_for_stop;
   double linear_velocity_kmh;
   
+  double min_radius;
+  
   private_nh_.param<double>("initial_velocity_kmh", initial_velocity_kmh, 2.1);
   private_nh_.param<double>("velcity_kmh_before_obstalcle", velcity_kmh_before_obstalcle, 1.0);
   private_nh_.param<double>("distance_before_obstacle", distance_before_obstalcle, 7.0);
@@ -85,6 +87,7 @@ FrenetPlannerROS::FrenetPlannerROS()
   private_nh_.param<double>("converge_distance_per_kmh_for_stop", converge_distance_per_kmh_for_stop, 2.36);
   private_nh_.param<double>("linear_velocity_kmh", linear_velocity_kmh, 5.0);
   private_nh_.param<bool>("only_testing_modified_global_path", only_testing_modified_global_path_, false);
+  private_nh_.param<double>("min_radius", min_radius, 1.6);
   const double kmh2ms = 0.2778;
   const double initial_velocity_ms = initial_velocity_kmh * kmh2ms;
   const double velocity_ms_before_obstacle = velcity_kmh_before_obstalcle * kmh2ms;
@@ -117,7 +120,9 @@ FrenetPlannerROS::FrenetPlannerROS()
   {
     calculate_center_line_ptr_.reset(new CalculateCenterLine());
   }
-  modified_reference_path_generator_ptr_.reset(new ModifiedReferencePathGenerator());
+  modified_reference_path_generator_ptr_.reset(
+    new ModifiedReferencePathGenerator(
+      min_radius));
   
   tf2_buffer_ptr_.reset(new tf2_ros::Buffer());
   tf2_listner_ptr_.reset(new tf2_ros::TransformListener(*tf2_buffer_ptr_));
@@ -418,7 +423,7 @@ void FrenetPlannerROS::timerCallback(const ros::TimerEvent &e)
       std::cerr << "------------"  << std::endl;
       
       autoware_msgs::Lane dummy_lane = *in_waypoints_ptr_;
-      // dummy_lane.waypoints = local_reference_waypoints;
+      dummy_lane.waypoints = local_reference_waypoints;
       dummy_lane.waypoints = out_trajectory.waypoints;
       optimized_waypoints_pub_.publish(dummy_lane);
     }
