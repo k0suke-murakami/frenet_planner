@@ -305,16 +305,17 @@ void FrenetPlannerROS::timerCallback(const ros::TimerEvent &e)
       {
         modified_reference_path_.clear();
       }
-      got_modified_reference_path_ =  modified_reference_path_generator_ptr_->generateModifiedReferencePath(
-        grid_map,
-        start_point,
-        goal_point,
-        *lidar2map_tf_,
-        *map2lidar_tf_,
-        modified_reference_path_,
-        debug_modified_smoothed_reference_path,
-        debug_bspline_path,
-        debug_clearance_map_pointcloud);
+      got_modified_reference_path_ =  
+        modified_reference_path_generator_ptr_->generateModifiedReferencePath(
+            grid_map,
+            start_point,
+            goal_point,
+            *lidar2map_tf_,
+            *map2lidar_tf_,
+            modified_reference_path_,
+            debug_modified_smoothed_reference_path,
+            debug_bspline_path,
+            debug_clearance_map_pointcloud);
       if(!got_modified_reference_path_)
       { 
         std::vector<autoware_msgs::Waypoint> aaa;
