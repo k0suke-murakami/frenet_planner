@@ -362,7 +362,7 @@ std::vector<double>  ModifiedReferencePathGenerator::generateOpenUniformKnotVect
     else
     {
       double knot = static_cast<double>(i) - static_cast<double>(degree_of_b_spline);
-      std::cerr << "aaa " << knot << std::endl;
+      // std::cerr << "aaa " << knot << std::endl;
       knot_vector.push_back(knot);
     }
   }
@@ -425,7 +425,7 @@ double ModifiedReferencePathGenerator::calaculateBasisFunction(
   return value;
 }
 
-void ModifiedReferencePathGenerator::generateModifiedReferencePath(
+bool ModifiedReferencePathGenerator::generateModifiedReferencePath(
     grid_map::GridMap& clearance_map, 
     const geometry_msgs::Point& start_point, 
     const geometry_msgs::Point& goal_point,
@@ -440,7 +440,7 @@ void ModifiedReferencePathGenerator::generateModifiedReferencePath(
   grid_map::Matrix data = clearance_map.get(layer_name);
 
   // grid_length y and grid_length_x respectively
-  dope::Index2 size({ 200, 300 });
+  dope::Index2 size({ 200, 500 });
   dope::Grid<float, 2> f(size);
   dope::Grid<dope::SizeType, 2> indices(size);
   bool is_empty_cost = true;
@@ -493,7 +493,7 @@ void ModifiedReferencePathGenerator::generateModifiedReferencePath(
   goal_p(0) = goal_point_in_lidar_tf.x; 
   goal_p(1) = goal_point_in_lidar_tf.y; 
   
-  std::cerr << "initial start p " << start_p << std::endl;
+  // std::cerr << "initial start p " << start_p << std::endl;
   std::vector<Node> s_open;
   Node* a = new Node();
   Node initial_node;
@@ -594,6 +594,11 @@ void ModifiedReferencePathGenerator::generateModifiedReferencePath(
   
   //backtrack
   Node current_node = s_closed.back();
+  if(calculate2DDistace(current_node.p, goal_p)>5)
+  {
+    std::cerr << "Error: could not fing modified global path; "  << std::endl;
+    return false;
+  }
   while(current_node.parent_node != nullptr)
   {
     geometry_msgs::Pose pose_in_lidar_tf;
@@ -618,10 +623,10 @@ void ModifiedReferencePathGenerator::generateModifiedReferencePath(
     
   }
   
-  for(const auto& point: path_points)
-  {
-    std::cerr << "raugh node position " << point.position(0)<< " "<<point.position(1) << std::endl;
-  }
+  // for(const auto& point: path_points)
+  // {
+  //   std::cerr << "raugh node position " << point.position(0)<< " "<<point.position(1) << std::endl;
+  // }
   // for(const auto& point: path_points)
   // {
   //   double rs = clearance_map.atPosition(clearance_map.getLayers().back(),
@@ -660,16 +665,10 @@ void ModifiedReferencePathGenerator::generateModifiedReferencePath(
   
   std::vector<PathPoint> refined_path = path_points;
   
-  for(const auto& point: refined_path)
-  {
-    double rs = clearance_map.atPosition(clearance_map.getLayers().back(),
-                                              point.position)*0.1;
-      std::cerr << "clearance " << rs << std::endl;
-  }
   double new_j, prev_j;
   do
   {
-    std::cerr << "------------" << std::endl;
+    // std::cerr << "------------" << std::endl;
     prev_j = calculateSmoothness(refined_path);
     
     if(refined_path.size() < 3)
@@ -686,7 +685,7 @@ void ModifiedReferencePathGenerator::generateModifiedReferencePath(
       const double resolution_of_gridmap = clearance_map.getResolution();
       double rs = clearance_map.atPosition(clearance_map.getLayers().back(),
                                               refined_path[i].position)*0.1;
-      std::cerr << "target clearance " << rs << std::endl;
+      // std::cerr << "target clearance " << rs << std::endl;
       Eigen::Vector2d new_position = 
                generateNewPosition(refined_path[i - 2].position,
                                 refined_path[i - 1].position,
@@ -751,6 +750,11 @@ void ModifiedReferencePathGenerator::generateModifiedReferencePath(
     debug_modified_smoothed_reference_path.push_back(waypoint);   
   }
   
+  // for(const auto& point: refined_path)
+  // {
+  //     std::cerr << "refined point " << point.position(0) << " "<< point.position(1) << std::endl;
+  // }
+  
   
   //bspline
   int number_of_control_points = refined_path.size();
@@ -788,4 +792,5 @@ void ModifiedReferencePathGenerator::generateModifiedReferencePath(
     debug_bspline_path.push_back(waypoint);
     
   }
+  return true;
 }

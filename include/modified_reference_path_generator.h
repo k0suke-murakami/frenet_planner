@@ -71,7 +71,7 @@ public:
   ModifiedReferencePathGenerator(/* args */);
   ~ModifiedReferencePathGenerator();
   
-  void generateModifiedReferencePath(
+  bool generateModifiedReferencePath(
       grid_map::GridMap& clearance_map,
       const geometry_msgs::Point& start_point,
       const geometry_msgs::Point& goal_point,
