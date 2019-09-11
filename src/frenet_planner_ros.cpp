@@ -50,8 +50,7 @@ FrenetPlannerROS::FrenetPlannerROS()
   private_nh_("~"),
   use_global_waypoints_as_center_line_(true),
   has_calculated_center_line_from_global_waypoints_(false),
-  got_modified_reference_path_(false),
-  only_testing_modified_global_path_(false)
+  got_modified_reference_path_(false)
 {
   double timer_callback_delta_second;
   private_nh_.param<double>("timer_callback_delta_second", timer_callback_delta_second, 0.1);
@@ -85,6 +84,7 @@ FrenetPlannerROS::FrenetPlannerROS()
   private_nh_.param<double>("lookahead_distance_per_kmh_for_reference_point", lookahead_distance_per_kmh_for_reference_point, 2.0);
   private_nh_.param<double>("converge_distance_per_kmh_for_stop", converge_distance_per_kmh_for_stop, 2.36);
   private_nh_.param<double>("linear_velocity_kmh", linear_velocity_kmh, 5.0);
+  private_nh_.param<bool>("only_testing_modified_global_path", only_testing_modified_global_path_, false);
   const double kmh2ms = 0.2778;
   const double initial_velocity_ms = initial_velocity_kmh * kmh2ms;
   const double velocity_ms_before_obstacle = velcity_kmh_before_obstalcle * kmh2ms;
@@ -123,7 +123,7 @@ FrenetPlannerROS::FrenetPlannerROS()
   tf2_listner_ptr_.reset(new tf2_ros::TransformListener(*tf2_buffer_ptr_));
   
   
-  optimized_waypoints_pub_ = nh_.advertise<autoware_msgs::Lane>("final_waypoints", 1, true);
+  optimized_waypoints_pub_ = nh_.advertise<autoware_msgs::Lane>("safety_waypoints", 1, true);
   markers_pub_ = nh_.advertise<visualization_msgs::MarkerArray>("frenet_planner_debug_markes", 1, true);
   gridmap_pointcloud_pub_ = nh_.advertise<sensor_msgs::PointCloud2>("gridmap_pointcloud", 1, true);
   final_waypoints_sub_ = nh_.subscribe("base_waypoints", 1, &FrenetPlannerROS::waypointsCallback, this);
