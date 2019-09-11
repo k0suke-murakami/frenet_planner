@@ -135,11 +135,11 @@ bool FrenetPlanner::generateEntirePath(
                     nearest_point);
   origin_point.d_state(0) = 0;
   origin_point.s_state(0) = nearest_point.cumulated_s;
-  double delta_s = 5;
+  double delta_s = 10;
   //TODO: better naming
   geometry_msgs::Pose origin_pose = current_pose.pose;
   for(double current_target_path_length = delta_s; 
-             current_target_path_length < 50;
+             current_target_path_length < 21;
              current_target_path_length += delta_s)
   {
     FrenetPoint target_point;
@@ -147,8 +147,8 @@ bool FrenetPlanner::generateEntirePath(
     target_point.s_state(0) = (origin_point.s_state(0) + delta_s);
     ReferencePoint reference_point;
     reference_point.frenet_point = target_point;
-    reference_point.lateral_max_offset = 3.0;
-    reference_point.lateral_sampling_resolution = 0.5;
+    reference_point.lateral_max_offset = 1.5;
+    reference_point.lateral_sampling_resolution = 0.25;
     reference_point.longitudinal_max_offset = 0.0;
     reference_point.longitudinal_sampling_resolution = 1.5;
     

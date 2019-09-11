@@ -73,7 +73,7 @@ FrenetPlannerROS::FrenetPlannerROS()
   private_nh_.param<double>("initial_velocity_kmh", initial_velocity_kmh, 2.1);
   private_nh_.param<double>("velcity_kmh_before_obstalcle", velcity_kmh_before_obstalcle, 1.0);
   private_nh_.param<double>("distance_before_obstacle", distance_before_obstalcle, 7.0);
-  private_nh_.param<double>("obstalce_radius_from_center_point", obstacle_radius_from_center_point, 3.0);
+  private_nh_.param<double>("obstalce_radius_from_center_point", obstacle_radius_from_center_point, 4.0);
   private_nh_.param<double>("min_lateral_referencing_offset_for_avoidance", min_lateral_referencing_offset_for_avoidance, 5.0);
   private_nh_.param<double>("max_lateral_referencing_offset_for_avoidance", max_lateral_referencing_offset_for_avoidance, 8.0);
   private_nh_.param<double>("diff_waypoints_cost_coef", diff_waypoints_cost_coef, 0.0);
