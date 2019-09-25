@@ -13,7 +13,7 @@
 * From a sourced terminal:
 
     - `roslaunch frenet_planner frenet_planner.launch`
-    - `roslaunch frenet_planner frenet_planner.launch initial_velocity_kmh:=2.1 velocity_kmh_before_obstalce:=1.0 distance_before_obstalce:=7.0 obstacle_radius_from_center_point:=3.0 min_lateral_referencing_offset_for_avoidance:=5.0 max_lateral_referencing_offset_for_avoidance:=8.0 cost_diff_waypoints_coef:=0.0 cost_diff_last_waypoint_coef:=1.0`
+    - `roslaunch frenet_planner frenet_planner.launch obstacle_radius_from_center_point:=2.0 linear_velocity_kmh:=5.0 only_testing_modified_global_path:=false min_radius:=1.6`
 
 
 ### Parameters

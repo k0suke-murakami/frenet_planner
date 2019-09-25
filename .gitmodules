@@ -1,0 +1,6 @@
+[submodule "distance_transform"]
+	path = distance_transform
+	url = git@github.com:giorgiomarcias/distance_transform.git
+[submodule "lib/distance_transform"]
+	path = lib/distance_transform
+	url = git@github.com:giorgiomarcias/distance_transform.git
