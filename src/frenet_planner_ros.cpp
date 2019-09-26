@@ -259,6 +259,7 @@ void FrenetPlannerROS::timerCallback(const ros::TimerEvent &e)
     grid_map::GridMap grid_map;
     grid_map::GridMapRosConverter::fromMessage(*in_gridmap_ptr_, grid_map);
     // std::vector<autoware_msgs::Waypoint> modified_reference_path;
+    std::vector<autoware_msgs::Waypoint> debug_astar_path;
     std::vector<autoware_msgs::Waypoint> debug_modified_smoothed_reference_path;
     std::vector<autoware_msgs::Waypoint> debug_bspline_path;
     sensor_msgs::PointCloud2 debug_clearance_map_pointcloud;
@@ -318,14 +319,15 @@ void FrenetPlannerROS::timerCallback(const ros::TimerEvent &e)
             *lidar2map_tf_,
             *map2lidar_tf_,
             modified_reference_path_,
+            debug_astar_path,
             debug_modified_smoothed_reference_path,
             debug_bspline_path,
             debug_clearance_map_pointcloud);
       if(!got_modified_reference_path_)
       { 
-        std::vector<autoware_msgs::Waypoint> aaa;
-        modified_reference_path_ = aaa;
-        return;
+        // std::vector<autoware_msgs::Waypoint> aaa;
+        // modified_reference_path_ = aaa;
+        // return;
       }
       
       if(only_testing_modified_global_path_)
@@ -353,7 +355,7 @@ void FrenetPlannerROS::timerCallback(const ros::TimerEvent &e)
     autoware_msgs::Lane out_trajectory;
     std::vector<autoware_msgs::Lane> out_debug_trajectories;
     std::vector<geometry_msgs::Point> out_target_points;
-    if(!only_testing_modified_global_path_)
+    if(!only_testing_modified_global_path_ && got_modified_reference_path_)
     {
       std::vector<autoware_msgs::Waypoint> local_reference_waypoints;
       double min_dist = 99999;
@@ -435,26 +437,69 @@ void FrenetPlannerROS::timerCallback(const ros::TimerEvent &e)
     visualization_msgs::MarkerArray points_marker_array;
     int unique_id = 0;
     
-    // // visualize debug target point
-    // visualization_msgs::Marker debug_target_point;
-    // debug_target_point.lifetime = ros::Duration(0.2);
-    // debug_target_point.header = in_pose_ptr_->header;
-    // debug_target_point.ns = std::string("debug_target_point_marker");
-    // debug_target_point.action = visualization_msgs::Marker::MODIFY;
-    // debug_target_point.pose.orientation.w = 1.0;
-    // debug_target_point.id = unique_id;
-    // debug_target_point.type = visualization_msgs::Marker::SPHERE_LIST;
-    // debug_target_point.scale.x = 0.9;
-    // debug_target_point.color.r = 1.0f;
-    // debug_target_point.color.g = 1.0f;
-    // debug_target_point.color.a = 1;
-    // for(const auto& point: out_target_points)
-    // {
-    //   debug_target_point.points.push_back(point);
-    // }
-    // points_marker_array.markers.push_back(debug_target_point);
-    // unique_id++;
+    // visualize debug modified reference point
+    visualization_msgs::Marker debug_a_star_marker;
+    debug_a_star_marker.lifetime = ros::Duration(0.2);
+    debug_a_star_marker.header = in_pose_ptr_->header;
+    debug_a_star_marker.ns = std::string("debug_a_star_marker");
+    debug_a_star_marker.action = visualization_msgs::Marker::MODIFY;
+    debug_a_star_marker.pose.orientation.w = 1.0;
+    debug_a_star_marker.id = unique_id;
+    debug_a_star_marker.type = visualization_msgs::Marker::SPHERE_LIST;
+    debug_a_star_marker.scale.x = 0.9;
+    debug_a_star_marker.color.r = 1.0f;
+    debug_a_star_marker.color.g = 1.0f;
+    debug_a_star_marker.color.a = 1;
+    for(const auto& waypoint: debug_astar_path)
+    {
+      debug_a_star_marker.points.push_back(waypoint.pose.pose.position);
+    }
+    points_marker_array.markers.push_back(debug_a_star_marker);
+    unique_id++;
     
+    //text astar path
+    for (const auto& point: debug_astar_path)
+    {
+      visualization_msgs::Marker debug_astar_clearance_text_marker;
+      debug_astar_clearance_text_marker.lifetime = ros::Duration(0.2);
+      debug_astar_clearance_text_marker.header = in_pose_ptr_->header;
+      debug_astar_clearance_text_marker.ns = std::string("debug_astar_clearance_text_marker");
+      debug_astar_clearance_text_marker.action = visualization_msgs::Marker::ADD;
+      debug_astar_clearance_text_marker.id = unique_id;
+      debug_astar_clearance_text_marker.type = visualization_msgs::Marker::TEXT_VIEW_FACING;
+      debug_astar_clearance_text_marker.scale.x = 1;
+      debug_astar_clearance_text_marker.scale.y = 0.1;
+      debug_astar_clearance_text_marker.scale.z = 0.4;
+
+      // texts are green
+      debug_astar_clearance_text_marker.color.g = 1.0f;
+      debug_astar_clearance_text_marker.color.a = 1.0;
+      
+      
+      geometry_msgs::Point relative_p;
+      relative_p.y = 0.8;
+      geometry_msgs::Pose pose;
+      pose.position = point.pose.pose.position;
+      pose.orientation.x = 0;
+      pose.orientation.y = 0;
+      pose.orientation.z = 0;
+      pose.orientation.w = 1.0;
+      tf::Transform inverse;
+      tf::poseMsgToTF(pose, inverse);
+
+      tf::Point p;
+      pointMsgToTF(relative_p, p);
+      tf::Point tf_p = inverse * p;
+      geometry_msgs::Point tf_point_msg;
+      pointTFToMsg(tf_p, tf_point_msg);
+      debug_astar_clearance_text_marker.pose.position = tf_point_msg;
+      debug_astar_clearance_text_marker.text = std::to_string(point.cost);
+      
+      unique_id++;
+      
+      points_marker_array.markers.push_back(debug_astar_clearance_text_marker); 
+    }
+       
     // visualize debug modified reference point
     visualization_msgs::Marker debug_modified_reference_points;
     debug_modified_reference_points.lifetime = ros::Duration(0.2);

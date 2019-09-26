@@ -13,6 +13,7 @@
 #include "vectormap_struct.h"
 
 #include <numeric>
+#include <cmath>
 
 
 

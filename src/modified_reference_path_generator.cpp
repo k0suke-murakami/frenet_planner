@@ -436,6 +436,7 @@ bool ModifiedReferencePathGenerator::generateModifiedReferencePath(
     const geometry_msgs::TransformStamped& lidar2map_tf, 
     const geometry_msgs::TransformStamped& map2lidar_tf,
     std::vector<autoware_msgs::Waypoint>& modified_reference_path,
+    std::vector<autoware_msgs::Waypoint>& debug_a_star_path,
     std::vector<autoware_msgs::Waypoint>& debug_modified_smoothed_reference_path,
     std::vector<autoware_msgs::Waypoint>& debug_bspline_path,
     sensor_msgs::PointCloud2& debug_pointcloud_clearance_map)
@@ -502,14 +503,14 @@ bool ModifiedReferencePathGenerator::generateModifiedReferencePath(
   Node* a = new Node();
   Node initial_node;
   double clearance_to_m = 0.1;
-  const double min_r = 1.6;
+  // const double min_r = 1.6;
   // const double min_r = 2.0;
   const double max_r = 10;
   initial_node.p = start_p;
   double initial_r = clearance_map.atPosition(layer_name, initial_node.p) * clearance_to_m ;
-  if(initial_r < min_r)
+  if(initial_r < min_radius_)
   {
-    initial_r = min_r;
+    initial_r = min_radius_;
   }
   else if(initial_r > max_r)
   {
@@ -525,9 +526,9 @@ bool ModifiedReferencePathGenerator::generateModifiedReferencePath(
   Node goal_node;
   goal_node.p = goal_p;
   double goal_r = clearance_map.atPosition(layer_name, goal_node.p) * clearance_to_m ;
-  if(goal_r < min_r)
+  if(goal_r < min_radius_)
   {
-    goal_r = min_r;
+    goal_r = min_radius_;
   }
   else if(goal_r > max_r)
   {
@@ -560,7 +561,7 @@ bool ModifiedReferencePathGenerator::generateModifiedReferencePath(
           expandNode(lowest_f_node, 
                      clearance_map,
                      goal_node,
-                     min_r,
+                     min_radius_,
                      max_r);
       s_open.insert(s_open.end(),
                     child_nodes.begin(),
@@ -571,6 +572,29 @@ bool ModifiedReferencePathGenerator::generateModifiedReferencePath(
         f_goal = lowest_f_node.f;
       }
     }
+  }
+  
+  for(auto& point: s_closed)
+  { 
+    //debugs
+    geometry_msgs::Pose pose_in_lidar_tf;      
+    pose_in_lidar_tf.position.x = point.p(0);
+    pose_in_lidar_tf.position.y = point.p(1);
+    pose_in_lidar_tf.position.z = start_point_in_lidar_tf.z;
+    pose_in_lidar_tf.orientation.w = 1.0;
+    geometry_msgs::Pose pose_in_map_tf;
+    tf2::doTransform(pose_in_lidar_tf, pose_in_map_tf, lidar2map_tf);
+    autoware_msgs::Waypoint waypoint;
+    waypoint.pose.pose = pose_in_map_tf;
+    double r = clearance_map.atPosition(layer_name, point.p) * clearance_to_m ;
+    waypoint.cost = r;
+    debug_a_star_path.push_back(waypoint);
+  }
+  
+  if(calculate2DDistace(s_closed.back().p, goal_p)>5)
+  {
+    std::cerr << "Error: could not fing modified global path; "  << std::endl; 
+    return false;
   }
   
   std::vector<PathPoint> path_points;
@@ -586,9 +610,9 @@ bool ModifiedReferencePathGenerator::generateModifiedReferencePath(
     double tmp_r = clearance_map.atPosition(clearance_map.getLayers().back(),
                                             start_p)*0.1;
     double r = std::min(tmp_r, max_r);
-    if(r < min_r)
+    if(r < min_radius_)
     {
-      r = min_r;
+      r = min_radius_;
       std::cerr << "start point's clearance is wrong "  << std::endl;
     }
     start_path_point.clearance = r;
@@ -603,11 +627,6 @@ bool ModifiedReferencePathGenerator::generateModifiedReferencePath(
   
   //backtrack
   Node current_node = s_closed.back();
-  if(calculate2DDistace(current_node.p, goal_p)>5)
-  {
-    std::cerr << "Error: could not fing modified global path; "  << std::endl;
-    return false;
-  }
   while(current_node.parent_node != nullptr)
   {
     // geometry_msgs::Pose pose_in_lidar_tf;
@@ -655,9 +674,9 @@ bool ModifiedReferencePathGenerator::generateModifiedReferencePath(
     double tmp_r = clearance_map.atPosition(clearance_map.getLayers().back(),
                                             goal_p)*0.1;
     double r = std::min(tmp_r, max_r);
-    if(r < min_r)
+    if(r < min_radius_)
     {
-      r = min_r;
+      r = min_radius_;
     }
     goal_path_point.clearance = r;
   }
@@ -701,7 +720,7 @@ bool ModifiedReferencePathGenerator::generateModifiedReferencePath(
                                 refined_path[i].position,
                                 refined_path[i+1].position,
                                 clearance_map,
-                                min_r,
+                                min_radius_,
                                 max_k,
                                 resolution_of_gridmap);
       double clearance;
@@ -765,7 +784,7 @@ bool ModifiedReferencePathGenerator::generateModifiedReferencePath(
   // }
   
   
-  //bspline
+  //bspline https://tajimarobotics.com/basis-spline-interpolation-program-2/
   int number_of_control_points = refined_path.size();
   int degree_of_b_spline = 3;
   int number_of_knot = number_of_control_points + degree_of_b_spline + 1;
