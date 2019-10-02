@@ -2,7 +2,7 @@
   <arg name="initial_velocity_kmh" default="2.1" />
   <arg name="velcity_kmh_before_obstalcle" default="1.0" />
   <arg name="distance_before_obstacle" default="7.0" />
-  <arg name="obstalce_radius_from_center_point" default="2.0" />
+  <arg name="obstalce_radius_from_center_point" default="1.3" />
   <arg name="min_lateral_referencing_offset_for_avoidance" default="5.0" />
   <arg name="max_lateral_referencing_offset_for_avoidance" default="8.0"/>
   <arg name="diff_waypoints_cost_coef" default="1.0"/>

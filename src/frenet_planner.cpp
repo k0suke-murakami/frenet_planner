@@ -140,114 +140,162 @@ bool FrenetPlanner::generateEntirePath(
                     nearest_point);
   origin_point.d_state(0) = 0;
   origin_point.s_state(0) = nearest_point.cumulated_s;
-  double delta_s = 10;
-  double number_of_path_layer = 2;
+  double delta_s = 5;
+  double number_of_path_layer = 8;
   //TODO: better naming
   geometry_msgs::Pose origin_pose = current_pose.pose;
-  std::vector<Trajectory> trajectories;
   FrenetPoint target_point;
   target_point.d_state(0) = 0;
   target_point.s_state(0) = (origin_point.s_state(0) + delta_s);
   ReferencePoint reference_point;
   reference_point.frenet_point = target_point;
-  reference_point.lateral_max_offset = 1.0;
+  reference_point.lateral_max_offset = 2.0;
   // reference_point.lateral_sampling_resolution = 0.25;
   reference_point.lateral_sampling_resolution = 0.25;
   reference_point.longitudinal_max_offset = 0.0;
   reference_point.longitudinal_sampling_resolution = 1.5;
   
   
-  
-  drawTrajectories(origin_pose,
-                    origin_point,
-                    reference_point,
-                    lane_points,
-                    reference_waypoints,
-                    trajectories,
-                    out_debug_trajectories);
-  for(double current_target_path_length = (delta_s*number_of_path_layer); 
-             current_target_path_length <= delta_s*number_of_path_layer;
-             current_target_path_length += delta_s)
+   for(size_t i = 0; i < number_of_path_layer; i++)
   {
-    const std::vector<Trajectory> dc_trajectories = trajectories;
-    trajectories.clear();
-    for (const auto& dc_trajectory: dc_trajectories)
+  
+    std::cerr << "origin point s " << origin_point.s_state(0) << std::endl;
+    std::cerr << "reference point s " << reference_point.frenet_point.s_state(0) << std::endl;
+    std::vector<Trajectory> trajectories;
+    drawTrajectories(origin_pose,
+                      origin_point,
+                      reference_point,
+                      lane_points,
+                      reference_waypoints,
+                      trajectories,
+                      out_debug_trajectories);
+                      
+    std::unique_ptr<ReferencePoint> kept_reference_point;
+    kept_reference_point.reset(new ReferencePoint(reference_point));  
+    std::unique_ptr<Trajectory> kept_best_trajectory;
+    selectBestTrajectory(trajectories,
+                        in_objects_ptr,
+                        reference_waypoints,
+                        kept_reference_point,
+                        kept_best_trajectory);
+                        
+    origin_pose = kept_best_trajectory->trajectory_points.waypoints.back().pose.pose;
+    for (const auto& point:kept_best_trajectory->frenet_trajectory_points)
     {
-      geometry_msgs::Pose origin_pose = dc_trajectory.trajectory_points.waypoints.back().pose.pose;
-      FrenetPoint origin_point = dc_trajectory.frenet_trajectory_points.back();
-      FrenetPoint target_point;
-      target_point.d_state(0) = origin_point.d_state(0);
-      target_point.s_state(0) = (origin_point.s_state(0) + delta_s);
-      ReferencePoint reference_point;
-      reference_point.frenet_point = target_point;
-      reference_point.lateral_max_offset = 2.0;
-      reference_point.lateral_sampling_resolution = 0.25;
-      reference_point.longitudinal_max_offset = 0.0;
-      reference_point.longitudinal_sampling_resolution = 1.5;
-      std::vector<Trajectory> child_trajectories;
-      drawTrajectories(origin_pose,
-                    origin_point,
-                    reference_point,
-                    lane_points,
-                    reference_waypoints,
-                    child_trajectories,
-                    out_debug_trajectories);
-                    
-      for(auto& child_trajectory: child_trajectories)
-      {
-        Trajectory new_trajectory = dc_trajectory;
-        new_trajectory.trajectory_points.waypoints.insert
-                    (new_trajectory.trajectory_points.waypoints.end(),
-                     child_trajectory.trajectory_points.waypoints.begin(),
-                     child_trajectory.trajectory_points.waypoints.end());
-        new_trajectory.calculated_trajectory_points.insert
-                    (new_trajectory.calculated_trajectory_points.end(),
-                     child_trajectory.calculated_trajectory_points.begin(),
-                     child_trajectory.calculated_trajectory_points.end());
-        new_trajectory.frenet_trajectory_points.insert
-                    (new_trajectory.frenet_trajectory_points.end(),
-                     child_trajectory.frenet_trajectory_points.begin(),
-                     child_trajectory.frenet_trajectory_points.end());
-        //TODO: conversion error from frenet to cartesion to frenet
-        // std::cerr<<"input origin  "<<origin_point.d_state(0)<<std::endl;
-        // std::cerr<<"dc "<<dc_trajectory.frenet_trajectory_points.back().d_state(0)<<std::endl;
-        // std::cerr << "sexod " << child_trajectory.frenet_trajectory_points.front().d_state(0) << std::endl;
-        trajectories.push_back(new_trajectory);
-      }
+      std::cerr << "frenet s " << point.s_state(0) << std::endl;
     }
+    
+    origin_point = kept_best_trajectory->frenet_trajectory_points.back();
+    std::cerr<< kept_best_trajectory->frenet_trajectory_points.size()<<std::endl;
+    FrenetPoint target_point;
+    target_point.d_state(0) = origin_point.d_state(0);
+    target_point.s_state(0) = (origin_point.s_state(0) + delta_s);
+    std::cerr << "origin s " << origin_point.s_state(0) << std::endl;
+    std::cerr << "target s " << target_point.s_state(0) << std::endl;
+    reference_point.frenet_point = target_point;
+  
+    // entire_path = kept_best_trajectory->trajectory_points.waypoints;
+    entire_path.insert(entire_path.end(),
+                       kept_best_trajectory->trajectory_points.waypoints.begin(),
+                       kept_best_trajectory->trajectory_points.waypoints.end());
+    // Trajectory new_trajectory = dc_trajectory;
+  //       new_trajectory.trajectory_points.waypoints.insert
+  //                   (new_trajectory.trajectory_points.waypoints.end(),
+  //                    child_trajectory.trajectory_points.waypoints.begin(),
+  //                    child_trajectory.trajectory_points.waypoints.end());
+  //       new_trajectory.calculated_trajectory_points.insert
+  //                   (new_trajectory.calculated_trajectory_points.end(),
+  //                    child_trajectory.calculated_trajectory_points.begin(),
+  //                    child_trajectory.calculated_trajectory_points.end());
+  //       new_trajectory.frenet_trajectory_points.insert
+  //                   (new_trajectory.frenet_trajectory_points.end(),
+  //                    child_trajectory.frenet_trajectory_points.begin(),
+  //                    child_trajectory.frenet_trajectory_points.end());
   }
   
-  
-  ReferencePoint final_reference_point;
-  final_reference_point.frenet_point.d_state(0) = 0;
-  final_reference_point.frenet_point.s_state(0) = delta_s*number_of_path_layer + origin_point.s_state(0);
-  final_reference_point.lateral_max_offset = 2.0;
-  final_reference_point.lateral_sampling_resolution = 0.25;
-  final_reference_point.longitudinal_max_offset = 0.0;
-  final_reference_point.longitudinal_sampling_resolution = 1.5;
-  std::unique_ptr<ReferencePoint> kept_reference_point;
-  kept_reference_point.reset(new ReferencePoint(final_reference_point));  
-  std::unique_ptr<Trajectory> kept_best_trajectory;
-  selectBestTrajectory(trajectories,
-                       in_objects_ptr,
-                       reference_waypoints,
-                       kept_reference_point,
-                       kept_best_trajectory);
-  // origin_point = kept_best_trajectory->frenet_trajectory_points.back();
-  // origin_pose = kept_best_trajectory->trajectory_points.waypoints.back().pose.pose;
-  out_reference_points.push_back(origin_pose.position);
-  entire_path = kept_best_trajectory->trajectory_points.waypoints;
-  // std::cerr << "traf size " << trajectories.size() << std::endl;
-  // std::cerr << "num  wp " << entire_path.size() << std::endl;
-  // for(const auto& wp: entire_path)
+  // for(double current_target_path_length = (delta_s*number_of_path_layer); 
+  //            current_target_path_length <= delta_s*number_of_path_layer;
+  //            current_target_path_length += delta_s)
   // {
-  //   std::cerr << "wpx " << wp.pose.pose.position.x << std::endl;
-  //   std::cerr << "wpx " << wp.pose.pose.position.y << std::endl;
+  //   const std::vector<Trajectory> dc_trajectories = trajectories;
+  //   trajectories.clear();
+  //   for (const auto& dc_trajectory: dc_trajectories)
+  //   {
+  //     geometry_msgs::Pose origin_pose = dc_trajectory.trajectory_points.waypoints.back().pose.pose;
+  //     FrenetPoint origin_point = dc_trajectory.frenet_trajectory_points.back();
+  //     FrenetPoint target_point;
+  //     target_point.d_state(0) = origin_point.d_state(0);
+  //     target_point.s_state(0) = (origin_point.s_state(0) + delta_s);
+  //     ReferencePoint reference_point;
+  //     reference_point.frenet_point = target_point;
+  //     reference_point.lateral_max_offset = 2.0;
+  //     reference_point.lateral_sampling_resolution = 0.25;
+  //     reference_point.longitudinal_max_offset = 0.0;
+  //     reference_point.longitudinal_sampling_resolution = 1.5;
+  //     std::vector<Trajectory> child_trajectories;
+  //     drawTrajectories(origin_pose,
+  //                   origin_point,
+  //                   reference_point,
+  //                   lane_points,
+  //                   reference_waypoints,
+  //                   child_trajectories,
+  //                   out_debug_trajectories);
+                    
+  //     for(auto& child_trajectory: child_trajectories)
+  //     {
+  //       Trajectory new_trajectory = dc_trajectory;
+  //       new_trajectory.trajectory_points.waypoints.insert
+  //                   (new_trajectory.trajectory_points.waypoints.end(),
+  //                    child_trajectory.trajectory_points.waypoints.begin(),
+  //                    child_trajectory.trajectory_points.waypoints.end());
+  //       new_trajectory.calculated_trajectory_points.insert
+  //                   (new_trajectory.calculated_trajectory_points.end(),
+  //                    child_trajectory.calculated_trajectory_points.begin(),
+  //                    child_trajectory.calculated_trajectory_points.end());
+  //       new_trajectory.frenet_trajectory_points.insert
+  //                   (new_trajectory.frenet_trajectory_points.end(),
+  //                    child_trajectory.frenet_trajectory_points.begin(),
+  //                    child_trajectory.frenet_trajectory_points.end());
+  //       //TODO: conversion error from frenet to cartesion to frenet
+  //       // std::cerr<<"input origin  "<<origin_point.d_state(0)<<std::endl;
+  //       // std::cerr<<"dc "<<dc_trajectory.frenet_trajectory_points.back().d_state(0)<<std::endl;
+  //       // std::cerr << "sexod " << child_trajectory.frenet_trajectory_points.front().d_state(0) << std::endl;
+  //       trajectories.push_back(new_trajectory);
+  //     }
+  //   }
   // }
-  // entire_path.insert
-  //             (entire_path.end(),
-  //               kept_best_trajectory->trajectory_points.waypoints.begin(),
-                // kept_best_trajectory->trajectory_points.waypoints.end());
+  
+  
+  // ReferencePoint final_reference_point;
+  // final_reference_point.frenet_point.d_state(0) = 0;
+  // final_reference_point.frenet_point.s_state(0) = delta_s*number_of_path_layer + origin_point.s_state(0);
+  // final_reference_point.lateral_max_offset = 2.0;
+  // final_reference_point.lateral_sampling_resolution = 0.25;
+  // final_reference_point.longitudinal_max_offset = 0.0;
+  // final_reference_point.longitudinal_sampling_resolution = 1.5;
+  // std::unique_ptr<ReferencePoint> kept_reference_point;
+  // kept_reference_point.reset(new ReferencePoint(final_reference_point));  
+  // std::unique_ptr<Trajectory> kept_best_trajectory;
+  // selectBestTrajectory(trajectories,
+  //                      in_objects_ptr,
+  //                      reference_waypoints,
+  //                      kept_reference_point,
+  //                      kept_best_trajectory);
+  // // origin_point = kept_best_trajectory->frenet_trajectory_points.back();
+  // // origin_pose = kept_best_trajectory->trajectory_points.waypoints.back().pose.pose;
+  // out_reference_points.push_back(origin_pose.position);
+  // entire_path = kept_best_trajectory->trajectory_points.waypoints;
+  // // std::cerr << "traf size " << trajectories.size() << std::endl;
+  // // std::cerr << "num  wp " << entire_path.size() << std::endl;
+  // // for(const auto& wp: entire_path)
+  // // {
+  // //   std::cerr << "wpx " << wp.pose.pose.position.x << std::endl;
+  // //   std::cerr << "wpx " << wp.pose.pose.position.y << std::endl;
+  // // }
+  // // entire_path.insert
+  // //             (entire_path.end(),
+  // //               kept_best_trajectory->trajectory_points.waypoints.begin(),
+  //               // kept_best_trajectory->trajectory_points.waypoints.end());
 }
 
 //TODO: draw trajectories based on reference_point parameters
@@ -877,7 +925,6 @@ bool FrenetPlanner::selectBestTrajectory(
     {
       has_got_best_trajectory = true;
       kept_best_trajectory.reset(new Trajectory(trajectories[index]));
-      std::cerr << "ith traj " << index << std::endl;
       break;
     }
   } 
